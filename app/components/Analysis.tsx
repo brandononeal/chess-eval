@@ -1,22 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { analyzePosition, AnalysisResult } from "@/lib/stockfish";
+import { useStockfish } from "@/lib/useStockfish";
 import { EvaluationBar } from "./EvaluationBar";
+import type { Score } from "@/lib/stockfish";
 
 interface AnalysisProps {
   fen: string;
   depth?: number;
 }
 
-export function Analysis({ fen, depth }: AnalysisProps) {
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+export function Analysis({ fen, depth = 15 }: AnalysisProps) {
+  const { lines } = useStockfish(fen, depth);
 
-  useEffect(() => {
-    analyzePosition(fen, depth).then((result) => {
-      setAnalysis(result);
-    });
-  }, [fen, depth]);
+  const topScore: Score | null = lines.length > 0 ? lines[0].score : null;
 
-  return <EvaluationBar score={analysis?.score ?? null} />;
+  return <EvaluationBar score={topScore} />;
 }
