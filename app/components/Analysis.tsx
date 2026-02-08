@@ -1,9 +1,9 @@
 "use client";
 
+import { getTurn, isCheckmate, isDraw } from "@/lib/chess-utils";
+import type { Score } from "@/lib/stockfish";
 import { useStockfish } from "@/lib/useStockfish";
 import { EvaluationBar } from "./EvaluationBar";
-import { isCheckmate, isDraw, getTurn } from "@/lib/chess-utils";
-import type { Score } from "@/lib/stockfish";
 
 interface AnalysisProps {
   fen: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { StockfishEngine, PVLine } from "./stockfish";
+import { PVLine, StockfishEngine } from "./stockfish";
 
 export interface UseStockfishResult {
   lines: PVLine[];

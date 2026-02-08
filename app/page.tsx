@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChessBoard } from "./components/ChessBoard";
-import { Analysis } from "./components/Analysis";
 import { STARTING_FEN, getMaterialBalance } from "@/lib/chess-utils";
+import { useEffect, useState } from "react";
+import { Analysis } from "./components/Analysis";
+import { ChessBoard } from "./components/ChessBoard";
 
 export default function Home() {
   const [history, setHistory] = useState<string[]>([STARTING_FEN]);

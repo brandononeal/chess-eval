@@ -1,8 +1,7 @@
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import "@testing-library/jest-dom";
 import { EvaluationBar } from "@/app/components/EvaluationBar";
 import type { Score } from "@/lib/stockfish";
+import "@testing-library/jest-dom";
+import { render, screen } from "@testing-library/react";
 
 describe("EvaluationBar", () => {
   it("renders without crashing when score is null", () => {

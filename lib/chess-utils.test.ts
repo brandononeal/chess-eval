@@ -1,13 +1,13 @@
 import {
-  isLegalMove,
-  makeMove,
   getLegalMoves,
-  getMoveInSAN,
   getMaterialBalance,
   getMaterialCounts,
+  getMoveInSAN,
+  getTurn,
   isCheckmate,
   isDraw,
-  getTurn,
+  isLegalMove,
+  makeMove,
   STARTING_FEN,
 } from "@/lib/chess-utils";
 

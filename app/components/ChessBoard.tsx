@@ -1,9 +1,10 @@
 "use client";
 
-import { Chessboard } from "react-chessboard";
-import { useState, useEffect, useRef } from "react";
 import { makeMove } from "@/lib/chess-utils";
 import { useDarkReader } from "@/lib/useDarkReader";
+import { useEffect, useRef, useState } from "react";
+import { Chessboard } from "react-chessboard";
+import type { SquareHandlerArgs } from "react-chessboard/dist/types";
 
 interface ChessBoardProps {
   fen: string;
@@ -12,8 +13,9 @@ interface ChessBoardProps {
 }
 
 export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [boardWidth, setBoardWidth] = useState(400);
+  const containerRef = useRef<HTMLDivElement>(null);
   const darkReader = useDarkReader();
 
   useEffect(() => {
@@ -36,9 +38,28 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
     const newFen = makeMove(fen, sourceSquare, targetSquare);
     if (newFen) {
       onMove(newFen);
+      setSelectedSquare(null);
       return true;
     }
     return false;
+  };
+
+  const handleSquareClick = ({ square }: SquareHandlerArgs) => {
+    if (selectedSquare) {
+      if (selectedSquare === square) {
+        setSelectedSquare(null);
+        return;
+      }
+      const newFen = makeMove(fen, selectedSquare, square);
+      if (newFen) {
+        onMove(newFen);
+        setSelectedSquare(null);
+      } else {
+        setSelectedSquare(null);
+      }
+    } else {
+      setSelectedSquare(square);
+    }
   };
 
   return (
@@ -52,7 +73,11 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
           showNotation: true,
           boardStyle: { width: `${boardWidth}px`, height: `${boardWidth}px` },
           onPieceDrop: handlePieceDrop,
+          onSquareClick: handleSquareClick,
           boardOrientation: flipped ? "black" : "white",
+          squareStyles: selectedSquare
+            ? { [selectedSquare]: { boxShadow: "inset 0 0 0 4px #facc15" } }
+            : undefined,
           ...(darkReader && {
             customDarkSquareStyle: { backgroundColor: "#4b4847" },
             customLightSquareStyle: { backgroundColor: "#7a7572" },
