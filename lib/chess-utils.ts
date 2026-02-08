@@ -9,15 +9,23 @@ const PIECE_VALUES: Record<string, number> = {
 };
 
 export function isLegalMove(fen: string, from: string, to: string): boolean {
-  const chess = new Chess(fen);
-  const move = chess.move({ from, to, promotion: "q" });
-  return move !== null;
+  try {
+    const chess = new Chess(fen);
+    const move = chess.move({ from, to, promotion: "q" });
+    return move !== null;
+  } catch {
+    return false;
+  }
 }
 
 export function makeMove(fen: string, from: string, to: string): string | null {
-  const chess = new Chess(fen);
-  const move = chess.move({ from, to, promotion: "q" });
-  return move ? chess.fen() : null;
+  try {
+    const chess = new Chess(fen);
+    const move = chess.move({ from, to, promotion: "q" });
+    return move ? chess.fen() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function getLegalMoves(fen: string): string[] {
