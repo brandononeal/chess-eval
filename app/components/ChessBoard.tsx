@@ -3,6 +3,7 @@
 import { Chessboard } from "react-chessboard";
 import { useState, useEffect, useRef } from "react";
 import { makeMove } from "@/lib/chess-utils";
+import { useDarkReader } from "@/lib/useDarkReader";
 
 interface ChessBoardProps {
   fen: string;
@@ -12,16 +13,16 @@ interface ChessBoardProps {
 export function ChessBoard({ fen, onMove }: ChessBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(400);
+  const darkReader = useDarkReader();
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      setBoardWidth(Math.round(entry.contentRect.width));
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
+    const ro = new ResizeObserver(([e]) =>
+      setBoardWidth(Math.round(e.contentRect.width)),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const handlePieceDrop = ({
@@ -42,7 +43,7 @@ export function ChessBoard({ fen, onMove }: ChessBoardProps) {
   return (
     <div
       ref={containerRef}
-      className="aspect-square w-full min-w-[300px] max-w-[500px] shrink-0"
+      className="chess-pieces aspect-square w-full min-w-[300px] max-w-[500px] shrink-0"
     >
       <Chessboard
         options={{
@@ -50,6 +51,10 @@ export function ChessBoard({ fen, onMove }: ChessBoardProps) {
           showNotation: true,
           boardStyle: { width: `${boardWidth}px`, height: `${boardWidth}px` },
           onPieceDrop: handlePieceDrop,
+          ...(darkReader && {
+            customDarkSquareStyle: { backgroundColor: "#4b4847" },
+            customLightSquareStyle: { backgroundColor: "#7a7572" },
+          }),
         }}
       />
     </div>

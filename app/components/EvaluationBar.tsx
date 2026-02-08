@@ -35,16 +35,16 @@ export function EvaluationBar({ score }: EvaluationBarProps) {
   const label = score ? scoreToLabel(score) : "0.0";
 
   return (
-    <div
-      className="w-8 border border-zinc-700 relative select-none flex-shrink-0"
-      style={{
-        background: `linear-gradient(to bottom, #1a1a1a 0%, #1a1a1a ${100 - percentage}%, #e8e8e8 ${100 - percentage}%, #e8e8e8 100%)`,
-      }}
-    >
+    <div className="eval-bar w-8 border border-zinc-700 relative select-none flex-shrink-0 overflow-hidden">
+      <div
+        style={{ backgroundColor: "#1a1a1a", height: `${100 - percentage}%` }}
+      />
+      <div style={{ backgroundColor: "#e8e8e8", height: `${percentage}%` }} />
       <div
         className={`absolute left-1/2 -translate-x-1/2 text-[10px] font-bold leading-none ${
-          isWhiteAdvantage ? "bottom-1 text-zinc-800" : "top-1 text-zinc-300"
+          isWhiteAdvantage ? "bottom-1" : "top-1"
         }`}
+        style={{ color: isWhiteAdvantage ? "#333" : "#ddd" }}
       >
         {label}
       </div>

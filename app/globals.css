@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.chess-pieces {
+  --darkreader-text-000000: #000000 !important;
+  --darkreader-text-ffffff: #ffffff !important;
+}
+
+.eval-bar {
+  --darkreader-background-e8e8e8: #e8e8e8 !important;
+  --darkreader-background-1a1a1a: #1a1a1a !important;
+  --darkreader-text-333333: #333333 !important;
+  --darkreader-text-dddddd: #dddddd !important;
+}
