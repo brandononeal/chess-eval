@@ -2,6 +2,8 @@
 
 A minimal chess position evaluator with real-time Stockfish analysis
 
+<img width="544" height="564" alt="Screenshot 2026-02-07 at 9 03 00 PM" src="https://github.com/user-attachments/assets/93eae8c8-5a50-4878-91cd-b31e63f789da" />
+
 ## Features
 
 - Interactive chessboard with drag-and-drop
