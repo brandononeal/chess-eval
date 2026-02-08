@@ -8,9 +8,10 @@ import { useDarkReader } from "@/lib/useDarkReader";
 interface ChessBoardProps {
   fen: string;
   onMove: (fen: string) => void;
+  flipped?: boolean;
 }
 
-export function ChessBoard({ fen, onMove }: ChessBoardProps) {
+export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(400);
   const darkReader = useDarkReader();
@@ -51,6 +52,7 @@ export function ChessBoard({ fen, onMove }: ChessBoardProps) {
           showNotation: true,
           boardStyle: { width: `${boardWidth}px`, height: `${boardWidth}px` },
           onPieceDrop: handlePieceDrop,
+          boardOrientation: flipped ? "black" : "white",
           ...(darkReader && {
             customDarkSquareStyle: { backgroundColor: "#4b4847" },
             customLightSquareStyle: { backgroundColor: "#7a7572" },

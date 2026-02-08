@@ -4,6 +4,7 @@ import type { Score } from "@/lib/stockfish";
 
 interface EvaluationBarProps {
   score: Score | null;
+  flipped?: boolean;
 }
 
 function scoreToPercentage(score: Score): number {
@@ -24,7 +25,7 @@ function scoreToLabel(score: Score): string {
   return pawns.toFixed(1);
 }
 
-export function EvaluationBar({ score }: EvaluationBarProps) {
+export function EvaluationBar({ score, flipped }: EvaluationBarProps) {
   const percentage = score ? scoreToPercentage(score) : 50;
   const isWhiteAdvantage = score
     ? score.type === "mate"
@@ -35,16 +36,24 @@ export function EvaluationBar({ score }: EvaluationBarProps) {
   const label = score ? scoreToLabel(score) : "0.0";
 
   return (
-    <div className="eval-bar w-8 border border-zinc-700 relative select-none flex-shrink-0 overflow-hidden">
+    <div
+      className="eval-bar w-8 border border-zinc-700 relative select-none flex-shrink-0 overflow-hidden"
+      style={{ transform: flipped ? "scaleY(-1)" : "none" }}
+    >
       <div
         style={{ backgroundColor: "#1a1a1a", height: `${100 - percentage}%` }}
       />
       <div style={{ backgroundColor: "#e8e8e8", height: `${percentage}%` }} />
       <div
-        className={`absolute left-1/2 -translate-x-1/2 text-[10px] font-bold leading-none ${
+        className={`absolute left-1/2 text-[10px] font-bold leading-none ${
           isWhiteAdvantage ? "bottom-1" : "top-1"
         }`}
-        style={{ color: isWhiteAdvantage ? "#333" : "#ddd" }}
+        style={{
+          color: isWhiteAdvantage ? "#333333" : "#ffffff",
+          transform: flipped
+            ? "translateX(-50%) scaleY(-1)"
+            : "translateX(-50%)",
+        }}
       >
         {label}
       </div>

@@ -8,6 +8,8 @@ import { STARTING_FEN, getMaterialBalance } from "@/lib/chess-utils";
 export default function Home() {
   const [history, setHistory] = useState<string[]>([STARTING_FEN]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showEval, setShowEval] = useState(true);
+  const [flipped, setFlipped] = useState(false);
 
   const fen = history[currentIndex];
   const material = getMaterialBalance(fen);
@@ -68,14 +70,26 @@ export default function Home() {
         >
           Forward →
         </button>
+        <button
+          onClick={() => setFlipped((v) => !v)}
+          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
+        >
+          Flip
+        </button>
+        <button
+          onClick={() => setShowEval((v) => !v)}
+          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
+        >
+          {showEval ? "Hide Eval" : "Show Eval"}
+        </button>
         <div className="px-4 py-2 bg-zinc-800 text-white rounded text-sm font-semibold">
           {materialDisplay}
         </div>
       </div>
 
       <div className="flex">
-        <Analysis fen={fen} depth={15} />
-        <ChessBoard fen={fen} onMove={handleMove} />
+        {showEval && <Analysis fen={fen} depth={15} flipped={flipped} />}
+        <ChessBoard fen={fen} onMove={handleMove} flipped={flipped} />
       </div>
     </main>
   );

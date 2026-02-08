@@ -7,12 +7,13 @@ import type { Score } from "@/lib/stockfish";
 interface AnalysisProps {
   fen: string;
   depth?: number;
+  flipped?: boolean;
 }
 
-export function Analysis({ fen, depth = 15 }: AnalysisProps) {
+export function Analysis({ fen, depth = 15, flipped }: AnalysisProps) {
   const { lines } = useStockfish(fen, depth);
 
   const topScore: Score | null = lines.length > 0 ? lines[0].score : null;
 
-  return <EvaluationBar score={topScore} />;
+  return <EvaluationBar score={topScore} flipped={flipped} />;
 }
