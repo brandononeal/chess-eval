@@ -62,6 +62,16 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
     }
   };
 
+  const squareStyles = selectedSquare
+    ? { [selectedSquare]: { boxShadow: "inset 0 0 0 4px #facc15" } }
+    : undefined;
+  const darkAlphaNotationStyle = darkReader
+    ? { color: "#d1d5db", fontWeight: "bold" }
+    : undefined;
+  const darkNumericNotationStyle = darkReader
+    ? { color: "#d1d5db", fontWeight: "bold" }
+    : undefined;
+
   return (
     <div
       ref={containerRef}
@@ -75,13 +85,15 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
           onPieceDrop: handlePieceDrop,
           onSquareClick: handleSquareClick,
           boardOrientation: flipped ? "black" : "white",
-          squareStyles: selectedSquare
-            ? { [selectedSquare]: { boxShadow: "inset 0 0 0 4px #facc15" } }
+          squareStyles,
+          darkSquareStyle: darkReader
+            ? { backgroundColor: "#4b4847" }
             : undefined,
-          ...(darkReader && {
-            customDarkSquareStyle: { backgroundColor: "#4b4847" },
-            customLightSquareStyle: { backgroundColor: "#7a7572" },
-          }),
+          lightSquareStyle: darkReader
+            ? { backgroundColor: "#7a7572" }
+            : undefined,
+          alphaNotationStyle: darkAlphaNotationStyle,
+          numericNotationStyle: darkNumericNotationStyle,
         }}
       />
     </div>
