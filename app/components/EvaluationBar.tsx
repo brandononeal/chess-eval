@@ -9,7 +9,9 @@ interface EvaluationBarProps {
 
 function scoreToPercentage(score: Score): number {
   if (score.type === "mate") {
-    return score.value > 0 ? 95 : score.value < 0 ? 5 : 50;
+    const absValue = Math.abs(score.value);
+    const isCheckmate = absValue >= 100;
+    return score.value > 0 ? (isCheckmate ? 100 : 95) : isCheckmate ? 0 : 5;
   }
   return Math.max(0, Math.min(100, 50 + (score.value / 100) * 5));
 }
@@ -17,11 +19,14 @@ function scoreToPercentage(score: Score): number {
 function scoreToLabel(score: Score): string {
   if (score.type === "mate") {
     const v = score.value;
+    const absValue = Math.abs(v);
+    if (absValue >= 100) return "✓";
     if (v > 0) return `M${v}`;
-    if (v < 0) return `M${Math.abs(v)}`;
+    if (v < 0) return `M${absValue}`;
     return "0.00";
   }
   const pawns = Math.abs(score.value / 100);
+  if (pawns === 0) return "=";
   return pawns.toFixed(1);
 }
 

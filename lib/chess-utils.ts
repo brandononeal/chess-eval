@@ -78,5 +78,25 @@ export function getMaterialCounts(fen: string): {
   return { white, black };
 }
 
+export function isCheckmate(fen: string): boolean {
+  const chess = new Chess(fen);
+  return chess.isCheckmate();
+}
+
+export function isDraw(fen: string): boolean {
+  const chess = new Chess(fen);
+  return (
+    chess.isDraw() ||
+    chess.isStalemate() ||
+    chess.isThreefoldRepetition() ||
+    chess.isInsufficientMaterial()
+  );
+}
+
+export function getTurn(fen: string): "w" | "b" {
+  const chess = new Chess(fen);
+  return chess.turn();
+}
+
 export const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChessBoard } from "./components/ChessBoard";
 import { Analysis } from "./components/Analysis";
 import { STARTING_FEN, getMaterialBalance } from "@/lib/chess-utils";
@@ -10,6 +10,11 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showEval, setShowEval] = useState(true);
   const [flipped, setFlipped] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fen = history[currentIndex];
   const material = getMaterialBalance(fen);
@@ -87,10 +92,12 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex">
-        {showEval && <Analysis fen={fen} depth={15} flipped={flipped} />}
-        <ChessBoard fen={fen} onMove={handleMove} flipped={flipped} />
-      </div>
+      {mounted && (
+        <div className="flex">
+          {showEval && <Analysis fen={fen} depth={15} flipped={flipped} />}
+          <ChessBoard fen={fen} onMove={handleMove} flipped={flipped} />
+        </div>
+      )}
     </main>
   );
 }
