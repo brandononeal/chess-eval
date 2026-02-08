@@ -53,8 +53,8 @@ export default function Home() {
   const canGoForward = currentIndex < history.length - 1;
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <div className="flex gap-2">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
+      <div className="flex flex-wrap gap-2 justify-center">
         <button
           onClick={handleReset}
           className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
@@ -93,7 +93,7 @@ export default function Home() {
       </div>
 
       {mounted && (
-        <div className="flex">
+        <div className="flex w-full justify-center px-4">
           {showEval && <Analysis fen={fen} depth={15} flipped={flipped} />}
           <ChessBoard fen={fen} onMove={handleMove} flipped={flipped} />
         </div>
