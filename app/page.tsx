@@ -4,6 +4,7 @@ import { STARTING_FEN, getMaterialBalance } from "@/lib/chess-utils";
 import { useEffect, useState } from "react";
 import { Analysis } from "./components/Analysis";
 import { ChessBoard } from "./components/ChessBoard";
+import { ControlBar } from "./components/ControlBar";
 
 export default function Home() {
   const [history, setHistory] = useState<string[]>([STARTING_FEN]);
@@ -54,43 +55,17 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
-      <div className="flex flex-wrap gap-2 justify-center">
-        <button
-          onClick={handleReset}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-        >
-          Reset
-        </button>
-        <button
-          onClick={handleBack}
-          disabled={!canGoBack}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded text-sm"
-        >
-          ← Back
-        </button>
-        <button
-          onClick={handleForward}
-          disabled={!canGoForward}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded text-sm"
-        >
-          Forward →
-        </button>
-        <button
-          onClick={() => setFlipped((v) => !v)}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-        >
-          Flip
-        </button>
-        <button
-          onClick={() => setShowEval((v) => !v)}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-        >
-          {showEval ? "Hide Eval" : "Show Eval"}
-        </button>
-        <div className="px-4 py-2 bg-zinc-800 text-white rounded text-sm font-semibold">
-          {materialDisplay}
-        </div>
-      </div>
+      <ControlBar
+        onReset={handleReset}
+        onBack={handleBack}
+        onForward={handleForward}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        onFlip={() => setFlipped((v) => !v)}
+        showEval={showEval}
+        onToggleEval={() => setShowEval((v) => !v)}
+        materialDisplay={materialDisplay}
+      />
 
       {mounted && (
         <div className="flex w-full justify-center px-4">

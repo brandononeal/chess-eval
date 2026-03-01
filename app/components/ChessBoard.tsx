@@ -46,17 +46,11 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
 
   const handleSquareClick = ({ square }: SquareHandlerArgs) => {
     if (selectedSquare) {
-      if (selectedSquare === square) {
-        setSelectedSquare(null);
-        return;
+      if (selectedSquare !== square) {
+        const newFen = makeMove(fen, selectedSquare, square);
+        if (newFen) onMove(newFen);
       }
-      const newFen = makeMove(fen, selectedSquare, square);
-      if (newFen) {
-        onMove(newFen);
-        setSelectedSquare(null);
-      } else {
-        setSelectedSquare(null);
-      }
+      setSelectedSquare(null);
     } else {
       setSelectedSquare(square);
     }
@@ -65,10 +59,7 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
   const squareStyles = selectedSquare
     ? { [selectedSquare]: { boxShadow: "inset 0 0 0 4px #facc15" } }
     : undefined;
-  const darkAlphaNotationStyle = darkReader
-    ? { color: "#d1d5db", fontWeight: "bold" }
-    : undefined;
-  const darkNumericNotationStyle = darkReader
+  const darkNotationStyle = darkReader
     ? { color: "#d1d5db", fontWeight: "bold" }
     : undefined;
 
@@ -92,8 +83,8 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
           lightSquareStyle: darkReader
             ? { backgroundColor: "#7a7572" }
             : undefined,
-          alphaNotationStyle: darkAlphaNotationStyle,
-          numericNotationStyle: darkNumericNotationStyle,
+          alphaNotationStyle: darkNotationStyle,
+          numericNotationStyle: darkNotationStyle,
         }}
       />
     </div>
