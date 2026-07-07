@@ -10,6 +10,9 @@ interface ControlBarProps {
   materialDisplay: string;
 }
 
+const BUTTON =
+  "rounded-lg border border-line px-4 py-2 text-sm transition-colors hover:bg-raised disabled:opacity-50 disabled:hover:bg-transparent";
+
 export function ControlBar({
   onReset,
   onBack,
@@ -22,40 +25,23 @@ export function ControlBar({
   materialDisplay,
 }: ControlBarProps) {
   return (
-    <div className="flex flex-wrap gap-2 justify-center">
-      <button
-        onClick={onReset}
-        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-      >
+    <div className="flex flex-wrap justify-center gap-2">
+      <button onClick={onReset} className={BUTTON}>
         Reset
       </button>
-      <button
-        onClick={onBack}
-        disabled={!canGoBack}
-        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded text-sm"
-      >
+      <button onClick={onBack} disabled={!canGoBack} className={BUTTON}>
         ← Back
       </button>
-      <button
-        onClick={onForward}
-        disabled={!canGoForward}
-        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded text-sm"
-      >
+      <button onClick={onForward} disabled={!canGoForward} className={BUTTON}>
         Forward →
       </button>
-      <button
-        onClick={onFlip}
-        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-      >
+      <button onClick={onFlip} className={BUTTON}>
         Flip
       </button>
-      <button
-        onClick={onToggleEval}
-        className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm"
-      >
+      <button onClick={onToggleEval} className={BUTTON}>
         {showEval ? "Hide Eval" : "Show Eval"}
       </button>
-      <div className="px-4 py-2 bg-zinc-800 text-white rounded text-sm font-semibold">
+      <div className="rounded-lg bg-surface px-4 py-2 font-mono text-sm font-semibold">
         {materialDisplay}
       </div>
     </div>

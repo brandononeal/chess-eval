@@ -42,19 +42,19 @@ export function EvaluationBar({ score, flipped }: EvaluationBarProps) {
 
   return (
     <div
-      className="eval-bar w-8 border border-zinc-700 relative select-none flex-shrink-0 overflow-hidden"
+      className="eval-bar relative w-8 flex-shrink-0 select-none overflow-hidden rounded border border-line bg-[color:var(--well-bg)]"
       style={{ transform: flipped ? "scaleY(-1)" : "none" }}
     >
       <div
-        style={{ backgroundColor: "#1a1a1a", height: `${100 - percentage}%` }}
+        style={{ backgroundColor: "#241c14", height: `${100 - percentage}%` }}
       />
-      <div style={{ backgroundColor: "#e8e8e8", height: `${percentage}%` }} />
+      <div style={{ backgroundColor: "#ede4d3", height: `${percentage}%` }} />
       <div
-        className={`absolute left-1/2 text-[10px] font-bold leading-none ${
+        className={`absolute left-1/2 font-mono text-[10px] font-semibold leading-none ${
           isWhiteAdvantage ? "bottom-1" : "top-1"
         }`}
         style={{
-          color: isWhiteAdvantage ? "#333333" : "#ffffff",
+          color: isWhiteAdvantage ? "#2b2118" : "#ede4d3",
           transform: flipped
             ? "translateX(-50%) scaleY(-1)"
             : "translateX(-50%)",

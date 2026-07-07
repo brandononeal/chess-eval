@@ -1,77 +1,637 @@
 "use client";
 
-import { STARTING_FEN, getMaterialBalance } from "@/lib/chess-utils";
+import { computeGrade, nextLevelPlan } from "@/lib/coach/grade";
+import {
+  CLOCK_BUCKET_LABELS,
+  TIME_CLASSES,
+  type GameAnalysis,
+  type IssueSeverity,
+  type TimePressureSummary,
+  type WeeklyReport,
+} from "@/lib/coach/types";
+import {
+  SEVERITY_GLYPH,
+  SEVERITY_TEXT,
+  formatClock,
+  formatDate,
+  formatEval,
+  winRate,
+} from "@/lib/coach/ui-utils";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Analysis } from "./components/Analysis";
-import { ChessBoard } from "./components/ChessBoard";
-import { ControlBar } from "./components/ControlBar";
+import { DrillCard } from "./components/DrillCard";
+import { GameReplay } from "./components/GameReplay";
+import { Sparkline } from "./components/Sparkline";
 
-export default function Home() {
-  const [history, setHistory] = useState<string[]>([STARTING_FEN]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showEval, setShowEval] = useState(true);
-  const [flipped, setFlipped] = useState(false);
-  const [mounted, setMounted] = useState(false);
+const RANGES = [7, 30, 90] as const;
+const TC_FILTERS = ["all", ...TIME_CLASSES] as const;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+const GRADE_COLORS: Record<string, string> = {
+  A: "text-brass",
+  B: "text-brass",
+  C: "text-draw",
+  D: "text-mistake",
+  F: "text-blunder",
+};
+const gradeColor = (letter: string) =>
+  GRADE_COLORS[letter[0]] ?? "text-blunder";
 
-  const fen = history[currentIndex];
-  const material = getMaterialBalance(fen);
-  const materialDisplay =
-    material === 0
-      ? "Equal"
-      : material > 0
-        ? `White +${material}`
-        : `Black +${Math.abs(material)}`;
+interface ReplayTarget {
+  analysis: GameAnalysis;
+  initialPly?: number;
+}
 
-  const handleMove = (newFen: string) => {
-    const newHistory = history.slice(0, currentIndex + 1);
-    newHistory.push(newFen);
-    setHistory(newHistory);
-    setCurrentIndex(newHistory.length - 1);
-  };
+function SeverityBadge({
+  severity,
+  children,
+}: {
+  severity: IssueSeverity;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`rounded px-1.5 font-mono text-xs ${SEVERITY_TEXT[severity]}`}
+      style={{ background: `var(--severity-${severity}-tint)` }}
+    >
+      {children}
+    </span>
+  );
+}
 
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+function Section({
+  step,
+  title,
+  children,
+}: {
+  step: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-5">
+      <h2 className="double-rule font-display text-lg font-semibold">
+        <span className="mr-2 font-mono text-sm font-normal text-ink-faint">
+          {step}
+        </span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
-  const handleForward = () => {
-    if (currentIndex < history.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
+function TimePressureCard({ tp }: { tp: TimePressureSummary }) {
+  if (!tp.hasClockData) return null;
+  return (
+    <div className="card px-6 py-4">
+      <div className="kicker mb-2">Blunders by clock</div>
+      <table className="font-mono text-xs leading-5">
+        <tbody>
+          {CLOCK_BUCKET_LABELS.map(([key, label]) => {
+            const b = tp.buckets[key];
+            const rate = b.moves > 0 ? (b.blunders + b.mistakes) / b.moves : 0;
+            return (
+              <tr key={key}>
+                <td className="pr-4 font-sans text-ink-soft">{label}</td>
+                <td className="pr-4 text-right">
+                  {b.blunders + b.mistakes}/{b.moves}
+                </td>
+                <td
+                  className={`text-right ${
+                    rate >= 0.2
+                      ? "text-blunder"
+                      : rate >= 0.1
+                        ? "text-mistake"
+                        : "text-ink-faint"
+                  }`}
+                >
+                  {b.moves > 0 ? `${(rate * 100).toFixed(1)}%` : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {tp.lostOnTime > 0 && (
+        <p className="mt-2 text-xs text-ink-faint">
+          Flagged {tp.lostOnTime}× — {tp.lostOnTimeWhileWinning} while winning.
+        </p>
+      )}
+    </div>
+  );
+}
 
-  const handleReset = () => {
-    setHistory([STARTING_FEN]);
-    setCurrentIndex(0);
-  };
+function StatCard({ value, label }: { value: React.ReactNode; label: string }) {
+  return (
+    <div className="card px-6 py-4">
+      <div className="font-display text-[34px] font-semibold leading-tight">
+        {value}
+      </div>
+      <div className="kicker mt-1">{label}</div>
+    </div>
+  );
+}
 
-  const canGoBack = currentIndex > 0;
-  const canGoForward = currentIndex < history.length - 1;
+function GameRow({
+  analysis,
+  onReplay,
+}: {
+  analysis: GameAnalysis;
+  onReplay: (target: ReplayTarget) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { game, issues, counts, acpl, repertoire } = analysis;
+
+  const railColor =
+    game.result === "win"
+      ? "var(--result-win)"
+      : game.result === "loss"
+        ? "var(--result-loss)"
+        : "var(--result-draw)";
+  const glyph =
+    game.result === "win" ? "W" : game.result === "loss" ? "L" : "½";
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
-      <ControlBar
-        onReset={handleReset}
-        onBack={handleBack}
-        onForward={handleForward}
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onFlip={() => setFlipped((v) => !v)}
-        showEval={showEval}
-        onToggleEval={() => setShowEval((v) => !v)}
-        materialDisplay={materialDisplay}
-      />
+    <div
+      className="border-b border-[color:var(--ledger-divider)]"
+      style={{ borderLeft: `3px solid ${railColor}` }}
+    >
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left text-sm transition-colors hover:bg-surface"
+      >
+        <span className="w-12 font-mono text-xs text-ink-faint">
+          {formatDate(game.endTime)}
+        </span>
+        <span
+          className="w-5 font-display text-base font-semibold"
+          style={{ color: railColor }}
+        >
+          {glyph}
+        </span>
+        <span className="w-14 text-ink-faint">
+          {game.userColor === "w" ? "White" : "Black"}
+        </span>
+        <span className="min-w-32 flex-1 font-medium">
+          {game.opponent}
+          <span className="ml-1 font-mono text-xs font-normal text-ink-faint">
+            {game.opponentRating}
+          </span>
+        </span>
+        <span className="hidden flex-1 truncate font-display text-[13px] italic text-ink-soft sm:block">
+          {game.openingName}
+        </span>
+        <span className="font-mono text-xs text-ink-soft">
+          ACPL {acpl}
+        </span>
+        <span className="flex gap-1">
+          {counts.blunder > 0 && (
+            <SeverityBadge severity="blunder">{counts.blunder}??</SeverityBadge>
+          )}
+          {counts.mistake > 0 && (
+            <SeverityBadge severity="mistake">{counts.mistake}?</SeverityBadge>
+          )}
+        </span>
+      </button>
 
-      {mounted && (
-        <div className="flex w-full justify-center px-4">
-          {showEval && <Analysis fen={fen} depth={15} flipped={flipped} />}
-          <ChessBoard fen={fen} onMove={handleMove} flipped={flipped} />
+      {expanded && (
+        <div className="bg-[color:var(--ledger-inset)] px-4 py-3 text-sm">
+          <p className="mb-2 flex flex-wrap items-center gap-x-3 text-ink-soft">
+            <button
+              onClick={() => onReplay({ analysis })}
+              className="rounded-lg border border-line px-3 py-0.5 text-xs hover:bg-raised"
+            >
+              ▶ Replay game
+            </button>
+            <span>
+              {repertoire.inRepertoire === true && (
+                <span className="text-win">✓ </span>
+              )}
+              {repertoire.inRepertoire === false && (
+                <span className="text-loss">✗ </span>
+              )}
+              {repertoire.note}
+            </span>
+            <a
+              href={game.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink-faint hover:text-brass hover:underline"
+            >
+              chess.com ↗
+            </a>
+          </p>
+          {issues.length === 0 ? (
+            <p className="text-ink-faint">No notable errors — clean game.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {issues.map((issue) => (
+                <li key={issue.ply}>
+                  <button
+                    onClick={() =>
+                      onReplay({ analysis, initialPly: issue.ply - 1 })
+                    }
+                    className="flex flex-wrap items-center gap-2 rounded px-1 py-0.5 font-mono text-[13px] hover:bg-raised"
+                  >
+                    <SeverityBadge severity={issue.severity}>
+                      {issue.severity}
+                    </SeverityBadge>
+                    <span>
+                      {issue.moveNumber}. {issue.san}
+                      <span className={SEVERITY_TEXT[issue.severity]}>
+                        {SEVERITY_GLYPH[issue.severity]}
+                      </span>
+                    </span>
+                    <span className="text-ink-faint">
+                      {formatEval(issue.evalBefore)} →{" "}
+                      {formatEval(issue.evalAfter)} · best{" "}
+                      {issue.bestMoveSan || "?"}
+                      {issue.clockSeconds !== undefined &&
+                        ` · ${formatClock(issue.clockSeconds)} on clock`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+export default function Coach() {
+  const [days, setDays] = useState<number>(7);
+  const [tc, setTc] = useState<(typeof TC_FILTERS)[number]>("all");
+  const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [replay, setReplay] = useState<ReplayTarget | null>(null);
+  const [progressText, setProgressText] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetch(`/api/coach/report?days=${days}&tc=${tc}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+        setReport(body);
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setError(err.message);
+      })
+      .finally(() => {
+        // An aborted request must not clear the loading state its
+        // replacement just set (Strict Mode double-invoke, range switches).
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [days, tc]);
+
+  useEffect(() => {
+    if (!loading) {
+      setProgressText("");
+      return;
+    }
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/coach/progress");
+        const p = await res.json();
+        if (p.phase === "analyzing" && p.total > 0) {
+          setProgressText(`Analyzing game ${p.current}/${p.total}…`);
+        } else if (p.phase === "fetching") {
+          setProgressText("Fetching games from Chess.com…");
+        }
+      } catch {
+        // keep last text
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  const grade = report ? computeGrade(report) : null;
+  const plan = report ? nextLevelPlan(report) : null;
+  const rangeLabel = report
+    ? `${formatDate(report.fromTime)} – ${formatDate(report.toTime)}`.toUpperCase()
+    : "";
+
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-12 px-4 py-10">
+      <header className="double-rule pb-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="kicker">
+            Week in review{tc !== "all" ? ` · ${tc}` : ""} · {rangeLabel}
+            {report ? ` · ${report.totals.games} games` : ""}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {TC_FILTERS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setTc(c)}
+                className={`rounded-lg px-2.5 py-1 text-xs capitalize transition-colors ${
+                  tc === c
+                    ? "bg-brass font-semibold text-brass-contrast"
+                    : "border border-line text-ink-soft hover:bg-raised"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-line" />
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setDays(r)}
+                className={`rounded-lg px-3 py-1 text-sm transition-colors ${
+                  days === r
+                    ? "bg-brass font-semibold text-brass-contrast"
+                    : "border border-line hover:bg-raised"
+                }`}
+              >
+                {r}d
+              </button>
+            ))}
+            <Link
+              href="/board"
+              className="ml-2 text-sm text-ink-faint hover:text-brass hover:underline"
+            >
+              Board →
+            </Link>
+          </div>
+        </div>
+
+        {grade && !loading && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-2">
+            <div
+              className={`font-display font-black leading-[0.85] ${gradeColor(grade.letter)}`}
+              style={{
+                fontSize: "clamp(96px, 14vw, 144px)",
+                textShadow:
+                  "0 1px 0 rgba(0,0,0,0.5), 0 0 40px rgba(201,164,92,0.15)",
+              }}
+            >
+              {grade.letter}
+            </div>
+            <p className="max-w-[44ch] text-[15px] leading-relaxed text-ink-soft">
+              {grade.note}
+            </p>
+          </div>
+        )}
+        {(!grade || loading) && (
+          <h1 className="mt-2 font-display text-3xl font-semibold">
+            Chess Coach
+          </h1>
+        )}
+
+        {plan && !loading && (
+          <div className="mt-6">
+            <div className="kicker mb-2">
+              The path to <span className="text-brass">{plan.target}</span> ·
+              currently <span className="font-mono">{plan.current}</span>
+              {report?.ratingSeriesClass ? ` ${report.ratingSeriesClass}` : ""}
+            </div>
+            <ol className="grid gap-x-8 gap-y-2 sm:grid-cols-3">
+              {plan.tips.map((tip, i) => (
+                <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-ink-soft">
+                  <span className="font-display text-brass">{i + 1}.</span>
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <p className="mt-4 text-sm text-ink-faint">
+          {report ? `${report.username} · ` : ""}Play → Analyze → Openings →
+          Puzzles
+        </p>
+      </header>
+
+      {loading && (
+        <div className="flex flex-col items-center gap-2 py-20 text-ink-soft">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-brass" />
+          <p>{progressText || "Fetching games and running Stockfish…"}</p>
+          <p className="text-xs text-ink-faint">
+            New games are analyzed once, then cached.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <p className="card border-loss p-4 text-loss">{error}</p>
+      )}
+
+      {report && !loading && (
+        <>
+          <Section step={1} title="Play">
+            {report.totals.games === 0 ? (
+              <p className="text-ink-soft">
+                No games in the last {days} days. The loop starts with Play.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                <StatCard
+                  value={
+                    <span className="font-mono">
+                      {report.totals.wins}
+                      <span className="text-ink-faint">–</span>
+                      {report.totals.losses}
+                      <span className="text-ink-faint">–</span>
+                      {report.totals.draws}
+                    </span>
+                  }
+                  label={`W–L–D · ${winRate(
+                    report.totals.wins,
+                    report.totals.draws,
+                    report.totals.games,
+                  )} score`}
+                />
+                {report.timeClassFilter === "all" &&
+                  Object.keys(report.byTimeClass).length > 1 &&
+                  Object.entries(report.byTimeClass).map(([cls, tally]) => (
+                    <StatCard
+                      key={cls}
+                      value={
+                        <span className="font-mono">
+                          {tally.wins}
+                          <span className="text-ink-faint">–</span>
+                          {tally.losses}
+                          <span className="text-ink-faint">–</span>
+                          {tally.draws}
+                        </span>
+                      }
+                      label={cls}
+                    />
+                  ))}
+                <TimePressureCard tp={report.timePressure} />
+              </div>
+            )}
+            {report.ratingSeries.length >= 2 && (
+              <div className="card flex flex-wrap gap-10 px-6 py-4">
+                <div>
+                  <div className="kicker mb-2">
+                    Rating{report.ratingSeriesClass ? ` · ${report.ratingSeriesClass}` : ""} ·{" "}
+                    {report.ratingSeries.length} games
+                  </div>
+                  <Sparkline values={report.ratingSeries.map((p) => p.rating)} />
+                </div>
+                {report.daily.length >= 2 && (
+                  <div className="min-w-0 max-w-full">
+                    <div className="kicker mb-2">By day</div>
+                    <div className="overflow-x-auto">
+                    <table className="font-mono text-xs leading-5">
+                      <tbody>
+                        {(
+                          [
+                            ["", (d) => d.date.slice(5)],
+                            ["Games", (d) => d.games],
+                            ["ACPL", (d) => d.acpl],
+                            ["Blunders", (d) => d.blunders],
+                          ] as Array<
+                            [string, (d: WeeklyReport["daily"][0]) => React.ReactNode]
+                          >
+                        ).map(([label, fn], row) => (
+                          <tr key={row}>
+                            <td className="pr-3 font-sans text-ink-faint">
+                              {label}
+                            </td>
+                            {report.daily.map((d) => (
+                              <td
+                                key={d.date}
+                                className={`pr-3 text-right ${row === 0 ? "text-ink-faint" : ""}`}
+                              >
+                                {fn(d)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {report.skippedGames > 0 && (
+              <p className="text-xs text-ink-faint">
+                Showing the {report.games.length} most recent games (
+                {report.skippedGames} older games in range not analyzed).
+              </p>
+            )}
+          </Section>
+
+          <Section step={2} title="Analyze">
+            <div className="border-t border-[color:var(--ledger-divider)]">
+              {report.games.map((analysis) => (
+                <GameRow
+                  key={analysis.game.url}
+                  analysis={analysis}
+                  onReplay={setReplay}
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section step={3} title="Openings">
+            {report.openings.length === 0 ? (
+              <p className="text-ink-soft">No opening data yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="kicker">
+                      <th className="pb-2 pr-4 font-semibold">Opening</th>
+                      <th className="pb-2 pr-4 font-semibold">As</th>
+                      <th className="pb-2 pr-4 text-right font-semibold">
+                        Games
+                      </th>
+                      <th className="pb-2 pr-4 text-right font-semibold">
+                        Score
+                      </th>
+                      <th className="pb-2 font-semibold">Repertoire</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.openings.map((o) => {
+                      const score = (o.wins + o.draws / 2) / o.games;
+                      return (
+                        <tr
+                          key={`${o.color}:${o.name}`}
+                          className="border-t border-[color:var(--ledger-divider)] transition-colors hover:bg-surface"
+                        >
+                          <td className="py-2 pr-4 font-display italic text-ink-soft">
+                            {o.name}
+                          </td>
+                          <td className="py-2 pr-4">
+                            {o.color === "w" ? "White" : "Black"}
+                          </td>
+                          <td className="py-2 pr-4 text-right font-mono">
+                            {o.games}
+                          </td>
+                          <td
+                            className={`py-2 pr-4 text-right font-mono ${
+                              score >= 0.6
+                                ? "text-win"
+                                : score <= 0.4
+                                  ? "text-loss"
+                                  : ""
+                            }`}
+                          >
+                            {winRate(o.wins, o.draws, o.games)}
+                          </td>
+                          <td className="py-2">
+                            {o.inRepertoire === true && (
+                              <span className="font-medium text-win">
+                                ✓ in book
+                              </span>
+                            )}
+                            {o.inRepertoire === false && (
+                              <span className="font-medium text-loss">
+                                ✗ off book
+                              </span>
+                            )}
+                            {o.inRepertoire === null && (
+                              <span className="text-ink-faint">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+
+          <Section step={4} title="Puzzles">
+            {report.drills.length === 0 ? (
+              <p className="text-ink-soft">
+                No blunders big enough to drill — nice week.
+              </p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {report.drills.map((drill, i) => (
+                  <DrillCard key={drill.id} drill={drill} index={i} />
+                ))}
+              </div>
+            )}
+          </Section>
+        </>
+      )}
+
+      {replay && (
+        <GameReplay
+          key={`${replay.analysis.game.url}#${replay.initialPly ?? 0}`}
+          analysis={replay.analysis}
+          initialPly={replay.initialPly}
+          onClose={() => setReplay(null)}
+        />
       )}
     </main>
   );

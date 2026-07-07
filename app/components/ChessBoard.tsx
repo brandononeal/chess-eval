@@ -1,40 +1,50 @@
 "use client";
 
 import { makeMove } from "@/lib/chess-utils";
+import { useContainerWidth } from "@/lib/useContainerWidth";
 import { useDarkReader } from "@/lib/useDarkReader";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { SquareHandlerArgs } from "react-chessboard/dist/types";
+
+export interface BoardArrow {
+  from: string;
+  to: string;
+  color: string;
+}
 
 interface ChessBoardProps {
   fen: string;
   onMove: (fen: string) => void;
   flipped?: boolean;
+  /** When false, pieces can't be moved (replay/scrub mode). */
+  interactive?: boolean;
+  arrows?: BoardArrow[];
+  /** Squares to tint (e.g. last move from/to). */
+  highlightSquares?: string[];
 }
 
-export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
+export function ChessBoard({
+  fen,
+  onMove,
+  flipped,
+  interactive = true,
+  arrows,
+  highlightSquares,
+}: ChessBoardProps) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
-  const [boardWidth, setBoardWidth] = useState(400);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { ref: containerRef, width: boardWidth } =
+    useContainerWidth<HTMLDivElement>();
   const darkReader = useDarkReader();
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) =>
-      setBoardWidth(Math.round(e.contentRect.width)),
-    );
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const handlePieceDrop = ({
     sourceSquare,
     targetSquare,
   }: {
     sourceSquare: string;
-    targetSquare: string;
+    targetSquare: string | null;
   }) => {
+    if (!interactive || !targetSquare) return false;
     const newFen = makeMove(fen, sourceSquare, targetSquare);
     if (newFen) {
       onMove(newFen);
@@ -45,6 +55,7 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
   };
 
   const handleSquareClick = ({ square }: SquareHandlerArgs) => {
+    if (!interactive) return;
     if (selectedSquare) {
       if (selectedSquare !== square) {
         const newFen = makeMove(fen, selectedSquare, square);
@@ -56,35 +67,72 @@ export function ChessBoard({ fen, onMove, flipped }: ChessBoardProps) {
     }
   };
 
-  const squareStyles = selectedSquare
-    ? { [selectedSquare]: { boxShadow: "inset 0 0 0 4px #facc15" } }
-    : undefined;
-  const darkNotationStyle = darkReader
-    ? { color: "#d1d5db", fontWeight: "bold" }
+  const squareStyles: Record<string, React.CSSProperties> = {};
+  for (const sq of highlightSquares ?? []) {
+    squareStyles[sq] = { backgroundColor: "var(--board-last-move)" };
+  }
+  if (selectedSquare) {
+    squareStyles[selectedSquare] = {
+      ...squareStyles[selectedSquare],
+      boxShadow: "inset 0 0 0 3px var(--board-selected)",
+    };
+  }
+
+  const notationStyle: React.CSSProperties = {
+    fontFamily: "var(--font-ui)",
+    fontSize: "0.6rem",
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+  };
+  const darkNotationOverride = darkReader
+    ? { color: "#d1d5db", fontWeight: "bold" as const }
     : undefined;
 
   return (
     <div
       ref={containerRef}
-      className="chess-pieces aspect-square w-full min-w-[300px] max-w-[500px] shrink-0"
+      className="chess-pieces board-frame aspect-square w-full min-w-0 max-w-[500px] shrink-0"
     >
       <Chessboard
         options={{
           position: fen,
           showNotation: true,
-          boardStyle: { width: `${boardWidth}px`, height: `${boardWidth}px` },
+          boardStyle: {
+            width: `${boardWidth}px`,
+            height: `${boardWidth}px`,
+            borderRadius: "var(--board-radius)",
+            overflow: "hidden",
+          },
           onPieceDrop: handlePieceDrop,
           onSquareClick: handleSquareClick,
+          allowDragging: interactive,
           boardOrientation: flipped ? "black" : "white",
+          animationDurationInMs: 180,
           squareStyles,
-          darkSquareStyle: darkReader
-            ? { backgroundColor: "#4b4847" }
-            : undefined,
-          lightSquareStyle: darkReader
-            ? { backgroundColor: "#7a7572" }
-            : undefined,
-          alphaNotationStyle: darkNotationStyle,
-          numericNotationStyle: darkNotationStyle,
+          arrows: (arrows ?? []).map((a) => ({
+            startSquare: a.from,
+            endSquare: a.to,
+            color: a.color,
+          })),
+          darkSquareStyle: {
+            backgroundColor: darkReader ? "#4b4847" : "var(--board-dark)",
+            backgroundImage: darkReader
+              ? undefined
+              : "linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10))",
+          },
+          lightSquareStyle: {
+            backgroundColor: darkReader ? "#7a7572" : "var(--board-light)",
+          },
+          darkSquareNotationStyle: {
+            ...notationStyle,
+            color: "var(--board-notation-on-dark)",
+            ...darkNotationOverride,
+          },
+          lightSquareNotationStyle: {
+            ...notationStyle,
+            color: "var(--board-notation-on-light)",
+            ...darkNotationOverride,
+          },
         }}
       />
     </div>
