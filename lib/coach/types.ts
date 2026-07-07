@@ -1,0 +1,152 @@
+export type GameResult = "win" | "loss" | "draw";
+
+export const TIME_CLASSES = ["bullet", "blitz", "rapid", "daily"] as const;
+export type TimeClass = (typeof TIME_CLASSES)[number];
+
+export interface CoachGame {
+  url: string;
+  endTime: number;
+  timeClass: string;
+  rated: boolean;
+  userColor: "w" | "b";
+  opponent: string;
+  opponentRating: number;
+  userRating: number;
+  result: GameResult;
+  userResultRaw: string;
+  eco: string;
+  openingName: string;
+  sans: string[];
+  /** Seconds remaining for the mover after each ply, from PGN %clk. */
+  clocks?: number[];
+  baseSeconds: number;
+}
+
+export type IssueSeverity = "inaccuracy" | "mistake" | "blunder";
+
+export interface MoveIssue {
+  ply: number;
+  moveNumber: number;
+  san: string;
+  severity: IssueSeverity;
+  evalBefore: number;
+  evalAfter: number;
+  swing: number;
+  fenBefore: string;
+  bestMoveSan: string;
+  /** User's clock (seconds) when this move was made, if known. */
+  clockSeconds?: number;
+}
+
+export type ClockBucket = "over30" | "s10to30" | "under10";
+
+// Display labels for the thresholds in analyze.ts's bucketFor — kept here
+// (dependency-free module) so client code can import them without pulling
+// the server-only engine wrapper into the bundle.
+export const CLOCK_BUCKET_LABELS: Array<[ClockBucket, string]> = [
+  ["over30", "Over 30s"],
+  ["s10to30", "10–30s"],
+  ["under10", "Under 10s"],
+];
+
+export interface BucketTally {
+  moves: number;
+  blunders: number;
+  mistakes: number;
+}
+
+export interface RepertoireCheck {
+  expected: string | null;
+  inRepertoire: boolean | null;
+  deviationSan?: string;
+  deviationMoveNumber?: number;
+  note: string;
+}
+
+export interface GameAnalysis {
+  game: CoachGame;
+  issues: MoveIssue[];
+  counts: Record<IssueSeverity, number>;
+  acpl: number;
+  repertoire: RepertoireCheck;
+  clockBuckets?: Record<ClockBucket, BucketTally>;
+  lostOnTime: boolean;
+  lostOnTimeWhileWinning: boolean;
+  /** Eval after each position (start + one per ply), White POV, clamped. */
+  evals: number[];
+}
+
+export interface Drill {
+  id: string;
+  gameUrl: string;
+  opponent: string;
+  fen: string;
+  userColor: "w" | "b";
+  playedSan: string;
+  bestMoveSan: string;
+  swing: number;
+  evalBefore: number;
+  moveNumber: number;
+  /** True when this drill resurfaced because it was failed on a past visit. */
+  isReview?: boolean;
+}
+
+export interface DrillRecord {
+  drill: Drill;
+  passed: boolean;
+  fails: number;
+  updatedAt: number;
+}
+
+export interface ResultTally {
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export interface OpeningSummary extends ResultTally {
+  name: string;
+  color: "w" | "b";
+  inRepertoire: boolean | null;
+}
+
+export interface TimePressureSummary {
+  buckets: Record<ClockBucket, BucketTally>;
+  lostOnTime: number;
+  lostOnTimeWhileWinning: number;
+  hasClockData: boolean;
+}
+
+export interface RatingPoint {
+  t: number;
+  rating: number;
+}
+
+export interface DailyPoint {
+  date: string;
+  games: number;
+  acpl: number;
+  blunders: number;
+}
+
+export interface WeeklyReport {
+  username: string;
+  generatedAt: number;
+  rangeDays: number;
+  fromTime: number;
+  toTime: number;
+  /** Which time class this report is scoped to ("all" = every class). */
+  timeClassFilter: string;
+  totals: ResultTally;
+  byTimeClass: Record<string, ResultTally>;
+  games: GameAnalysis[];
+  drills: Drill[];
+  openings: OpeningSummary[];
+  skippedGames: number;
+  timePressure: TimePressureSummary;
+  ratingSeries: RatingPoint[];
+  /** Ratings are per-class on Chess.com — the series only ever charts one. */
+  ratingSeriesClass: string | null;
+  daily: DailyPoint[];
+}

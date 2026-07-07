@@ -31,6 +31,9 @@ yarn-error.log*
 # stockfish engine files (copied from node_modules by postinstall)
 public/stockfish-*
 
+# coach analysis cache
+/data
+
 # vercel
 .vercel
 
