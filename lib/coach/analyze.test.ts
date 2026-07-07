@@ -34,14 +34,14 @@ describe("buildReport rating series", () => {
       issues: [],
       counts: { inaccuracy: 0, mistake: 0, blunder: 0 },
       acpl: 50,
-      repertoire: { expected: null, inRepertoire: null, note: "" },
+      repertoire: { inRepertoire: null, note: "" },
       lostOnTime: false,
       lostOnTimeWhileWinning: false,
       evals: [],
     }) as unknown as GameAnalysis;
 
   it("charts only the dominant time class, never mixed rating scales", () => {
-    const report = buildReport("u", 7, 0, 100, [
+    const report = buildReport("u", 0, 100, [
       analysis("bullet", 740, 1),
       analysis("bullet", 750, 2),
       analysis("rapid", 950, 3),
@@ -51,13 +51,13 @@ describe("buildReport rating series", () => {
   });
 
   it("handles an empty report", () => {
-    const report = buildReport("u", 7, 0, 100, [], 0);
+    const report = buildReport("u", 0, 100, [], 0);
     expect(report.ratingSeriesClass).toBeNull();
     expect(report.ratingSeries).toEqual([]);
   });
 
   it("records the applied filter", () => {
-    const report = buildReport("u", 7, 0, 100, [analysis("blitz", 900, 1)], 0, {}, "blitz");
+    const report = buildReport("u", 0, 100, [analysis("blitz", 900, 1)], 0, {}, "blitz");
     expect(report.timeClassFilter).toBe("blitz");
   });
 });

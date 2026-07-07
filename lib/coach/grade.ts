@@ -1,4 +1,5 @@
-import type { WeeklyReport } from "./types";
+import type { OpeningSummary, WeeklyReport } from "./types";
+import { errorRate, scoreOf, winRate } from "./ui-utils";
 
 export interface WeekGrade {
   letter: string;
@@ -35,12 +36,23 @@ function letterFor(gpa: number): string {
   return "F";
 }
 
-function bucketRate(b: { moves: number; blunders: number; mistakes: number }) {
-  return b.moves > 0 ? (b.blunders + b.mistakes) / b.moves : 0;
-}
+// One definition each of "leaking" and "carrying" openings — the hero note
+// and the next-level plan must never cite contradictory openings.
+const findLeak = (openings: OpeningSummary[]) =>
+  openings.find(
+    (o) => o.inRepertoire === false && o.games >= 3 && scoreOf(o) < 0.4,
+  );
+
+const findCarry = (openings: OpeningSummary[]) =>
+  openings.find(
+    (o) => o.inRepertoire === true && o.games >= 3 && scoreOf(o) >= 0.6,
+  );
+
+const totalBlunders = (report: WeeklyReport) =>
+  report.games.reduce((n, g) => n + g.counts.blunder, 0);
 
 function coachNote(report: WeeklyReport, avgAcpl: number): string {
-  const { timePressure: tp, totals, daily, openings, games } = report;
+  const { timePressure: tp, totals, daily, openings } = report;
 
   if (tp.lostOnTimeWhileWinning > 0) {
     return `You lost ${tp.lostOnTimeWhileWinning} winning ${
@@ -48,8 +60,8 @@ function coachNote(report: WeeklyReport, avgAcpl: number): string {
     } on the clock — convert faster, premove the endings.`;
   }
 
-  const calm = bucketRate(tp.buckets.over30);
-  const rushed = bucketRate(tp.buckets.s10to30);
+  const calm = errorRate(tp.buckets.over30);
+  const rushed = errorRate(tp.buckets.s10to30);
   if (
     tp.hasClockData &&
     tp.buckets.s10to30.moves >= 40 &&
@@ -71,28 +83,17 @@ function coachNote(report: WeeklyReport, avgAcpl: number): string {
     }
   }
 
-  const leak = openings.find(
-    (o) =>
-      o.inRepertoire === false &&
-      o.games >= 3 &&
-      (o.wins + o.draws / 2) / o.games < 0.4,
-  );
+  const leak = findLeak(openings);
   if (leak) {
     return `${leak.name} is bleeding points (${leak.wins}-${leak.losses}-${leak.draws}) and it isn't in your book — study it or steer away.`;
   }
 
-  const carry = openings.find(
-    (o) =>
-      o.inRepertoire === true &&
-      o.games >= 3 &&
-      (o.wins + o.draws / 2) / o.games >= 0.6,
-  );
+  const carry = findCarry(openings);
   if (carry) {
     return `The ${carry.name} is carrying you: ${carry.wins}-${carry.losses}-${carry.draws}. Play it more.`;
   }
 
-  const blunders = games.reduce((n, g) => n + g.counts.blunder, 0);
-  return `${blunders} blunders across ${totals.games} games (ACPL ${avgAcpl}) — your worst moments are waiting in Puzzles.`;
+  return `${totalBlunders(report)} blunders across ${totals.games} games (ACPL ${avgAcpl}) — your worst moments are waiting in Puzzles.`;
 }
 
 export interface LevelPlan {
@@ -113,7 +114,7 @@ export function nextLevelPlan(report: WeeklyReport): LevelPlan | null {
   const target = Math.floor(current / 100) * 100 + 100;
   const tips: string[] = [];
 
-  const calm = bucketRate(tp.buckets.over30);
+  const calm = errorRate(tp.buckets.over30);
   const rushedMoves = tp.buckets.s10to30.moves + tp.buckets.under10.moves;
   const rushedErrors =
     tp.buckets.s10to30.blunders +
@@ -137,35 +138,24 @@ export function nextLevelPlan(report: WeeklyReport): LevelPlan | null {
     );
   }
 
-  const blunders = games.reduce((n, g) => n + g.counts.blunder, 0);
-  const bpg = blunders / games.length;
+  const bpg = totalBlunders(report) / games.length;
   if (bpg >= 1.5) {
     tips.push(
       `You average ${bpg.toFixed(1)} blunders per game. Cutting that to one is worth more than any opening study — the Puzzles below are built from exactly those moments.`,
     );
   }
 
-  const leak = openings.find(
-    (o) =>
-      o.inRepertoire === false &&
-      o.games >= 3 &&
-      (o.wins + o.draws / 2) / o.games < 0.4,
-  );
+  const leak = findLeak(openings);
   if (leak) {
     tips.push(
       `You're ${leak.wins}–${leak.losses}–${leak.draws} in the ${leak.name} and it isn't in your book — pick one reply and drill it until it's automatic.`,
     );
   }
 
-  const carry = openings.find(
-    (o) =>
-      o.inRepertoire === true &&
-      o.games >= 3 &&
-      (o.wins + o.draws / 2) / o.games >= 0.6,
-  );
+  const carry = findCarry(openings);
   if (carry) {
     tips.push(
-      `The ${carry.name} scores ${winRateLabel(carry)} for you — steer more games into it and fewer into sidelines.`,
+      `The ${carry.name} scores ${winRate(carry.wins, carry.draws, carry.games)} for you — steer more games into it and fewer into sidelines.`,
     );
   }
 
@@ -178,10 +168,6 @@ export function nextLevelPlan(report: WeeklyReport): LevelPlan | null {
   return { current, target, tips: tips.slice(0, 3) };
 }
 
-function winRateLabel(o: { wins: number; draws: number; games: number }) {
-  return `${Math.round(((o.wins + o.draws / 2) / o.games) * 100)}%`;
-}
-
 export function computeGrade(report: WeeklyReport): WeekGrade | null {
   const { games, totals } = report;
   if (games.length === 0) return null;
@@ -189,9 +175,12 @@ export function computeGrade(report: WeeklyReport): WeekGrade | null {
   const avgAcpl = Math.round(
     games.reduce((sum, g) => sum + g.acpl, 0) / games.length,
   );
-  const blundersPerGame =
-    games.reduce((n, g) => n + g.counts.blunder, 0) / games.length;
-  const score = (totals.wins + totals.draws / 2) / totals.games;
+  const blundersPerGame = totalBlunders(report) / games.length;
+  const score = scoreOf({
+    wins: totals.wins,
+    draws: totals.draws,
+    games: totals.games,
+  });
 
   let gpa = acplPoints(avgAcpl);
   if (blundersPerGame <= 0.8) gpa += 0.3;

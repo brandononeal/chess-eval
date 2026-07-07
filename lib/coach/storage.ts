@@ -25,8 +25,17 @@ async function writeJson(file: string, value: unknown): Promise<void> {
 
 export const loadAnalysisCache = () =>
   readJson<AnalysisCache>("coach-cache.json", {});
-export const saveAnalysisCache = (cache: AnalysisCache) =>
-  writeJson("coach-cache.json", cache);
+
+export const saveAnalysisCache = (cache: AnalysisCache) => {
+  // Entries from superseded CACHE_VERSIONs can never be read again —
+  // prune them so the file doesn't grow forever.
+  const pruned: AnalysisCache = {};
+  const suffix = `v${CACHE_VERSION}`;
+  for (const [key, value] of Object.entries(cache)) {
+    if (key.endsWith(suffix)) pruned[key] = value;
+  }
+  return writeJson("coach-cache.json", pruned);
+};
 
 export const loadDrillHistory = () =>
   readJson<DrillHistory>("drill-history.json", {});

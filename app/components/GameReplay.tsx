@@ -2,6 +2,7 @@
 
 import type { GameAnalysis, MoveIssue } from "@/lib/coach/types";
 import {
+  RESULT_LABEL,
   SEVERITY_GLYPH,
   SEVERITY_TEXT,
   formatClock,
@@ -77,13 +78,19 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
   const arrows = useMemo(() => {
     if (!nextIssue) return [];
     const result: BoardArrow[] = [];
-    const played = moveSquares(fen, nextIssue.san);
+    // The played move's squares are already known from the replay parse.
+    const played = moves[nextIssue.ply - 1];
     const best = moveSquares(fen, nextIssue.bestMoveSan);
-    if (played) result.push({ ...played, color: "var(--arrow-played)" });
+    if (played)
+      result.push({
+        from: played.from,
+        to: played.to,
+        color: "var(--arrow-played)",
+      });
     if (best && best.to !== played?.to)
       result.push({ ...best, color: "var(--arrow-best)" });
     return result;
-  }, [fen, nextIssue]);
+  }, [fen, moves, nextIssue]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -107,8 +114,12 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
   }, [ply]);
 
   const currentEval = evals[ply] ?? 0;
-  const resultLabel =
-    game.result === "win" ? "Won" : game.result === "loss" ? "Lost" : "Drew";
+  const controls: Array<[string, () => void]> = [
+    ["⏮", () => setPly(0)],
+    ["◀", () => setPly((p) => Math.max(0, p - 1))],
+    ["▶", () => setPly((p) => Math.min(moves.length, p + 1))],
+    ["⏭", () => setPly(moves.length)],
+  ];
 
   return (
     <div
@@ -124,7 +135,7 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="font-display text-xl font-semibold">
-              {resultLabel} vs {game.opponent}
+              {RESULT_LABEL[game.result]} vs {game.opponent}
               <span className="ml-2 font-mono text-sm font-normal text-ink-faint">
                 ({game.opponentRating})
               </span>
@@ -239,18 +250,13 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
 
             <div className="flex items-center justify-between">
               <div className="flex gap-1">
-                {[
-                  ["⏮", () => setPly(0)],
-                  ["◀", () => setPly((p) => Math.max(0, p - 1))],
-                  ["▶", () => setPly((p) => Math.min(moves.length, p + 1))],
-                  ["⏭", () => setPly(moves.length)],
-                ].map(([label, fn], i) => (
+                {controls.map(([label, onClick]) => (
                   <button
-                    key={i}
-                    onClick={fn as () => void}
+                    key={label}
+                    onClick={onClick}
                     className="rounded-md border border-line px-3 py-1 text-sm hover:bg-raised"
                   >
-                    {label as string}
+                    {label}
                   </button>
                 ))}
               </div>

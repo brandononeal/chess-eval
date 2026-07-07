@@ -1,5 +1,5 @@
 import { Chess } from "chess.js";
-import type { IssueSeverity } from "./types";
+import type { BucketTally, GameResult, IssueSeverity } from "./types";
 
 export const SEVERITY_TEXT: Record<IssueSeverity, string> = {
   blunder: "text-blunder",
@@ -46,9 +46,45 @@ export function formatDate(epochSeconds: number): string {
   });
 }
 
+/** Score fraction with draws worth half; 0 when no games. */
+export function scoreOf(o: {
+  wins: number;
+  draws: number;
+  games: number;
+}): number {
+  return o.games > 0 ? (o.wins + o.draws / 2) / o.games : 0;
+}
+
 export function winRate(wins: number, draws: number, games: number): string {
   if (games === 0) return "—";
-  return `${Math.round(((wins + draws / 2) / games) * 100)}%`;
+  return `${Math.round(scoreOf({ wins, draws, games }) * 100)}%`;
+}
+
+/** Blunder+mistake rate for a clock bucket. */
+export function errorRate(b: BucketTally): number {
+  return b.moves > 0 ? (b.blunders + b.mistakes) / b.moves : 0;
+}
+
+export const RESULT_GLYPH: Record<GameResult, string> = {
+  win: "W",
+  loss: "L",
+  draw: "½",
+};
+
+export const RESULT_VAR: Record<GameResult, string> = {
+  win: "var(--result-win)",
+  loss: "var(--result-loss)",
+  draw: "var(--result-draw)",
+};
+
+export const RESULT_LABEL: Record<GameResult, string> = {
+  win: "Won",
+  loss: "Lost",
+  draw: "Drew",
+};
+
+export function colorName(color: "w" | "b"): string {
+  return color === "w" ? "White" : "Black";
 }
 
 export function formatClock(seconds: number): string {

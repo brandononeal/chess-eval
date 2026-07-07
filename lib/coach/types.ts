@@ -7,17 +7,16 @@ export interface CoachGame {
   url: string;
   endTime: number;
   timeClass: string;
-  rated: boolean;
   userColor: "w" | "b";
   opponent: string;
   opponentRating: number;
   userRating: number;
   result: GameResult;
   userResultRaw: string;
-  eco: string;
   openingName: string;
   sans: string[];
-  /** Seconds remaining for the mover after each ply, from PGN %clk. */
+  /** Seconds remaining for the mover after each ply, from PGN %clk.
+      Consumed during analysis; stripped from API responses. */
   clocks?: number[];
   baseSeconds: number;
 }
@@ -56,10 +55,7 @@ export interface BucketTally {
 }
 
 export interface RepertoireCheck {
-  expected: string | null;
   inRepertoire: boolean | null;
-  deviationSan?: string;
-  deviationMoveNumber?: number;
   note: string;
 }
 
@@ -132,8 +128,6 @@ export interface DailyPoint {
 
 export interface WeeklyReport {
   username: string;
-  generatedAt: number;
-  rangeDays: number;
   fromTime: number;
   toTime: number;
   /** Which time class this report is scoped to ("all" = every class). */

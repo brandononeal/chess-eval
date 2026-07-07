@@ -8,7 +8,7 @@ describe("checkRepertoire", () => {
         "w",
       );
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("Italian");
+      expect(result.note).toBe("Italian Game");
     });
 
     it("flags the Spanish as a deviation from the Italian", () => {
@@ -17,7 +17,7 @@ describe("checkRepertoire", () => {
         "w",
       );
       expect(result.inRepertoire).toBe(false);
-      expect(result.deviationSan).toBe("Bb5");
+      expect(result.note).toContain("Bb5");
     });
 
     it("is silent when the opponent avoids 1...e5", () => {
@@ -31,7 +31,7 @@ describe("checkRepertoire", () => {
         "w",
       );
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("London");
+      expect(result.note).toBe("London System");
     });
 
     it("recognizes the Catalan", () => {
@@ -40,13 +40,13 @@ describe("checkRepertoire", () => {
         "w",
       );
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("Catalan");
+      expect(result.note).toBe("Catalan");
     });
 
     it("flags 1.Nf3 as off-repertoire", () => {
       const result = checkRepertoire(["Nf3", "d5", "g3", "Nf6"], "w");
       expect(result.inRepertoire).toBe(false);
-      expect(result.deviationMoveNumber).toBe(1);
+      expect(result.note).toContain("outside the repertoire");
     });
   });
 
@@ -54,13 +54,13 @@ describe("checkRepertoire", () => {
     it("recognizes the Sicilian", () => {
       const result = checkRepertoire(["e4", "c5", "Nf3", "d6"], "b");
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("Sicilian");
+      expect(result.note).toBe("Sicilian");
     });
 
     it("recognizes the Caro-Kann", () => {
       const result = checkRepertoire(["e4", "c6", "d4", "d5"], "b");
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("Caro-Kann");
+      expect(result.note).toBe("Caro-Kann");
     });
 
     it("recognizes the Pirc", () => {
@@ -69,13 +69,13 @@ describe("checkRepertoire", () => {
         "b",
       );
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("Pirc");
+      expect(result.note).toBe("Pirc Defense");
     });
 
     it("flags 1...e5 vs 1.e4 as off-repertoire", () => {
       const result = checkRepertoire(["e4", "e5", "Nf3", "Nc6"], "b");
       expect(result.inRepertoire).toBe(false);
-      expect(result.deviationMoveNumber).toBe(1);
+      expect(result.note).toContain("outside the repertoire");
     });
 
     it("recognizes the King's Indian vs 1.d4", () => {
@@ -84,7 +84,7 @@ describe("checkRepertoire", () => {
         "b",
       );
       expect(result.inRepertoire).toBe(true);
-      expect(result.expected).toBe("King's Indian");
+      expect(result.note).toBe("King's Indian setup");
     });
 
     it("flags an incomplete King's Indian setup", () => {

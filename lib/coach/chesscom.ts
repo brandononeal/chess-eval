@@ -14,13 +14,11 @@ interface ApiGame {
   url: string;
   pgn?: string;
   end_time: number;
-  rated: boolean;
   time_class: string;
   time_control?: string;
   rules: string;
   white: ApiPlayer;
   black: ApiPlayer;
-  eco?: string;
 }
 
 const DRAW_RESULTS = new Set([
@@ -52,19 +50,36 @@ function monthKey(date: Date): string {
   return `${y}/${m}`;
 }
 
-function openingNameFromPgn(headers: Record<string, string | null>): string {
-  const ecoUrl = headers["ECOUrl"];
-  if (ecoUrl) {
-    const slug = ecoUrl.split("/openings/")[1];
-    if (slug) {
-      // Slugs end in move notation, e.g. "Pirc-Defense-Classical-4...Bg7"
-      const words = slug.split("-");
-      const cut = words.findIndex((w) => /^\d/.test(w));
-      const name = (cut === -1 ? words : words.slice(0, cut)).join(" ").trim();
-      if (name) return name;
-    }
+// Past month archives are immutable; the current month changes as games
+// finish. Cache accordingly so range/filter clicks don't refetch megabytes
+// of PGN. Stored on globalThis to survive dev-mode module reloads.
+const CURRENT_MONTH_TTL_MS = 5 * 60_000;
+const g = globalThis as {
+  __chesscomMonths?: Map<string, { at: number; games: ApiGame[] }>;
+  __chesscomArchives?: Map<string, { at: number; archives: string[] }>;
+};
+
+async function fetchArchiveList(username: string): Promise<string[]> {
+  g.__chesscomArchives ??= new Map();
+  const hit = g.__chesscomArchives.get(username);
+  if (hit && Date.now() - hit.at < CURRENT_MONTH_TTL_MS) return hit.archives;
+  const { archives } = await fetchJson<{ archives: string[] }>(
+    `${API}/${username}/games/archives`,
+  );
+  g.__chesscomArchives.set(username, { at: Date.now(), archives });
+  return archives;
+}
+
+async function fetchMonth(url: string): Promise<ApiGame[]> {
+  g.__chesscomMonths ??= new Map();
+  const isCurrentMonth = url.endsWith(monthKey(new Date()));
+  const hit = g.__chesscomMonths.get(url);
+  if (hit && (!isCurrentMonth || Date.now() - hit.at < CURRENT_MONTH_TTL_MS)) {
+    return hit.games;
   }
-  return headers["ECO"] ?? "Unknown";
+  const { games } = await fetchJson<{ games: ApiGame[] }>(url);
+  g.__chesscomMonths.set(url, { at: Date.now(), games });
+  return games;
 }
 
 /** "0:00:59.9" → 59.9 */
@@ -95,8 +110,23 @@ export function baseSecondsFromTimeControl(timeControl?: string): number {
   return Number(base) || 0;
 }
 
+function openingNameFromPgn(headers: Record<string, string | null>): string {
+  const ecoUrl = headers["ECOUrl"];
+  if (ecoUrl) {
+    const slug = ecoUrl.split("/openings/")[1];
+    if (slug) {
+      // Slugs end in move notation, e.g. "Pirc-Defense-Classical-4...Bg7"
+      const words = slug.split("-");
+      const cut = words.findIndex((w) => /^\d/.test(w));
+      const name = (cut === -1 ? words : words.slice(0, cut)).join(" ").trim();
+      if (name) return name;
+    }
+  }
+  return headers["ECO"] ?? "Unknown";
+}
+
 function parseGame(raw: ApiGame, username: string): CoachGame | null {
-  if (raw.rules !== "chess" || !raw.pgn) return null;
+  if (!raw.pgn) return null;
 
   const lower = username.toLowerCase();
   const userIsWhite = raw.white.username.toLowerCase() === lower;
@@ -118,14 +148,12 @@ function parseGame(raw: ApiGame, username: string): CoachGame | null {
     url: raw.url,
     endTime: raw.end_time,
     timeClass: raw.time_class,
-    rated: raw.rated,
     userColor: userIsWhite ? "w" : "b",
     opponent: opp.username,
     opponentRating: opp.rating,
     userRating: user.rating,
     result: toResult(user.result),
     userResultRaw: user.result,
-    eco: headers["ECO"] ?? "",
     openingName: openingNameFromPgn(headers),
     sans,
     clocks: extractClocks(raw.pgn, sans.length),
@@ -133,13 +161,18 @@ function parseGame(raw: ApiGame, username: string): CoachGame | null {
   };
 }
 
+export interface FetchGamesResult {
+  games: CoachGame[];
+  /** In-range games matching the filter, before the limit was applied. */
+  totalInRange: number;
+}
+
 export async function fetchGamesSince(
   username: string,
   fromEpoch: number,
-): Promise<CoachGame[]> {
-  const { archives } = await fetchJson<{ archives: string[] }>(
-    `${API}/${username}/games/archives`,
-  );
+  opts: { timeClass?: string; limit?: number } = {},
+): Promise<FetchGamesResult> {
+  const archives = await fetchArchiveList(username);
 
   const fromMonth = monthKey(new Date(fromEpoch * 1000));
   const wanted = archives.filter((url) => {
@@ -147,15 +180,27 @@ export async function fetchGamesSince(
     return key >= fromMonth;
   });
 
-  const games: CoachGame[] = [];
+  const raw: ApiGame[] = [];
   for (const url of wanted) {
-    const { games: monthGames } = await fetchJson<{ games: ApiGame[] }>(url);
-    for (const raw of monthGames) {
-      if (raw.end_time < fromEpoch) continue;
-      const parsed = parseGame(raw, username);
-      if (parsed) games.push(parsed);
-    }
+    raw.push(...(await fetchMonth(url)));
   }
 
-  return games.sort((a, b) => b.endTime - a.endTime);
+  // Filter and cap on the cheap raw fields BEFORE the expensive PGN parse.
+  const inRange = raw
+    .filter(
+      (game) =>
+        game.end_time >= fromEpoch &&
+        game.rules === "chess" &&
+        (!opts.timeClass ||
+          opts.timeClass === "all" ||
+          game.time_class === opts.timeClass),
+    )
+    .sort((a, b) => b.end_time - a.end_time);
+
+  const toParse = opts.limit ? inRange.slice(0, opts.limit) : inRange;
+  const games = toParse
+    .map((game) => parseGame(game, username))
+    .filter((game): game is CoachGame => game !== null);
+
+  return { games, totalInRange: inRange.length };
 }

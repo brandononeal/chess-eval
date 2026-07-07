@@ -10,11 +10,16 @@ import {
   type WeeklyReport,
 } from "@/lib/coach/types";
 import {
+  RESULT_GLYPH,
+  RESULT_VAR,
   SEVERITY_GLYPH,
   SEVERITY_TEXT,
+  colorName,
+  errorRate,
   formatClock,
   formatDate,
   formatEval,
+  scoreOf,
   winRate,
 } from "@/lib/coach/ui-utils";
 import Link from "next/link";
@@ -89,7 +94,7 @@ function TimePressureCard({ tp }: { tp: TimePressureSummary }) {
         <tbody>
           {CLOCK_BUCKET_LABELS.map(([key, label]) => {
             const b = tp.buckets[key];
-            const rate = b.moves > 0 ? (b.blunders + b.mistakes) / b.moves : 0;
+            const rate = errorRate(b);
             return (
               <tr key={key}>
                 <td className="pr-4 font-sans text-ink-soft">{label}</td>
@@ -132,6 +137,26 @@ function StatCard({ value, label }: { value: React.ReactNode; label: string }) {
   );
 }
 
+function TallyValue({
+  wins,
+  losses,
+  draws,
+}: {
+  wins: number;
+  losses: number;
+  draws: number;
+}) {
+  return (
+    <span className="font-mono">
+      {wins}
+      <span className="text-ink-faint">–</span>
+      {losses}
+      <span className="text-ink-faint">–</span>
+      {draws}
+    </span>
+  );
+}
+
 function GameRow({
   analysis,
   onReplay,
@@ -141,15 +166,7 @@ function GameRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { game, issues, counts, acpl, repertoire } = analysis;
-
-  const railColor =
-    game.result === "win"
-      ? "var(--result-win)"
-      : game.result === "loss"
-        ? "var(--result-loss)"
-        : "var(--result-draw)";
-  const glyph =
-    game.result === "win" ? "W" : game.result === "loss" ? "L" : "½";
+  const railColor = RESULT_VAR[game.result];
 
   return (
     <div
@@ -167,11 +184,9 @@ function GameRow({
           className="w-5 font-display text-base font-semibold"
           style={{ color: railColor }}
         >
-          {glyph}
+          {RESULT_GLYPH[game.result]}
         </span>
-        <span className="w-14 text-ink-faint">
-          {game.userColor === "w" ? "White" : "Black"}
-        </span>
+        <span className="w-14 text-ink-faint">{colorName(game.userColor)}</span>
         <span className="min-w-32 flex-1 font-medium">
           {game.opponent}
           <span className="ml-1 font-mono text-xs font-normal text-ink-faint">
@@ -437,15 +452,7 @@ export default function Coach() {
             ) : (
               <div className="flex flex-wrap gap-4">
                 <StatCard
-                  value={
-                    <span className="font-mono">
-                      {report.totals.wins}
-                      <span className="text-ink-faint">–</span>
-                      {report.totals.losses}
-                      <span className="text-ink-faint">–</span>
-                      {report.totals.draws}
-                    </span>
-                  }
+                  value={<TallyValue {...report.totals} />}
                   label={`W–L–D · ${winRate(
                     report.totals.wins,
                     report.totals.draws,
@@ -457,15 +464,7 @@ export default function Coach() {
                   Object.entries(report.byTimeClass).map(([cls, tally]) => (
                     <StatCard
                       key={cls}
-                      value={
-                        <span className="font-mono">
-                          {tally.wins}
-                          <span className="text-ink-faint">–</span>
-                          {tally.losses}
-                          <span className="text-ink-faint">–</span>
-                          {tally.draws}
-                        </span>
-                      }
+                      value={<TallyValue {...tally} />}
                       label={cls}
                     />
                   ))}
@@ -487,30 +486,44 @@ export default function Coach() {
                     <div className="overflow-x-auto">
                     <table className="font-mono text-xs leading-5">
                       <tbody>
-                        {(
-                          [
-                            ["", (d) => d.date.slice(5)],
-                            ["Games", (d) => d.games],
-                            ["ACPL", (d) => d.acpl],
-                            ["Blunders", (d) => d.blunders],
-                          ] as Array<
-                            [string, (d: WeeklyReport["daily"][0]) => React.ReactNode]
-                          >
-                        ).map(([label, fn], row) => (
-                          <tr key={row}>
-                            <td className="pr-3 font-sans text-ink-faint">
-                              {label}
+                        <tr className="text-ink-faint">
+                          <td className="pr-3 font-sans" />
+                          {report.daily.map((d) => (
+                            <td key={d.date} className="pr-3 text-right">
+                              {d.date.slice(5)}
                             </td>
-                            {report.daily.map((d) => (
-                              <td
-                                key={d.date}
-                                className={`pr-3 text-right ${row === 0 ? "text-ink-faint" : ""}`}
-                              >
-                                {fn(d)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="pr-3 font-sans text-ink-faint">
+                            Games
+                          </td>
+                          {report.daily.map((d) => (
+                            <td key={d.date} className="pr-3 text-right">
+                              {d.games}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="pr-3 font-sans text-ink-faint">
+                            ACPL
+                          </td>
+                          {report.daily.map((d) => (
+                            <td key={d.date} className="pr-3 text-right">
+                              {d.acpl}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="pr-3 font-sans text-ink-faint">
+                            Blunders
+                          </td>
+                          {report.daily.map((d) => (
+                            <td key={d.date} className="pr-3 text-right">
+                              {d.blunders}
+                            </td>
+                          ))}
+                        </tr>
                       </tbody>
                     </table>
                     </div>
@@ -559,7 +572,7 @@ export default function Coach() {
                   </thead>
                   <tbody>
                     {report.openings.map((o) => {
-                      const score = (o.wins + o.draws / 2) / o.games;
+                      const score = scoreOf(o);
                       return (
                         <tr
                           key={`${o.color}:${o.name}`}
@@ -568,9 +581,7 @@ export default function Coach() {
                           <td className="py-2 pr-4 font-display italic text-ink-soft">
                             {o.name}
                           </td>
-                          <td className="py-2 pr-4">
-                            {o.color === "w" ? "White" : "Black"}
-                          </td>
+                          <td className="py-2 pr-4">{colorName(o.color)}</td>
                           <td className="py-2 pr-4 text-right font-mono">
                             {o.games}
                           </td>

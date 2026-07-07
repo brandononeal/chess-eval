@@ -239,13 +239,22 @@ function buildRatingSeries(analyses: GameAnalysis[]): {
   return { series, cls };
 }
 
+// Local calendar date — the ledger and every other date in the app render
+// local time, so grouping by UTC day would file evening games under tomorrow.
+function localDateKey(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function buildDaily(analyses: GameAnalysis[]): DailyPoint[] {
   const byDate = new Map<
     string,
     { games: number; acplSum: number; blunders: number }
   >();
   for (const a of analyses) {
-    const date = new Date(a.game.endTime * 1000).toISOString().slice(0, 10);
+    const date = localDateKey(a.game.endTime);
     const entry = byDate.get(date) ?? { games: 0, acplSum: 0, blunders: 0 };
     entry.games++;
     entry.acplSum += a.acpl;
@@ -305,7 +314,6 @@ function buildOpenings(analyses: GameAnalysis[]): OpeningSummary[] {
 
 export function buildReport(
   username: string,
-  rangeDays: number,
   fromTime: number,
   toTime: number,
   analyses: GameAnalysis[],
@@ -327,8 +335,6 @@ export function buildReport(
 
   return {
     username,
-    generatedAt: Math.floor(toTime),
-    rangeDays,
     fromTime,
     toTime,
     timeClassFilter,

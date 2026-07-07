@@ -42,11 +42,12 @@ export async function GET(req: NextRequest) {
 
   try {
     setProgress({ phase: "fetching", current: 0, total: 0 });
-    const games = (await fetchGamesSince(username, fromTime)).filter(
-      (g) => timeClass === "all" || g.timeClass === timeClass,
+    const { games: toAnalyze, totalInRange } = await fetchGamesSince(
+      username,
+      fromTime,
+      { timeClass, limit: MAX_GAMES },
     );
-    const toAnalyze = games.slice(0, MAX_GAMES);
-    const skippedGames = games.length - toAnalyze.length;
+    const skippedGames = totalInRange - toAnalyze.length;
 
     const cache = await loadAnalysisCache();
     if (refresh) {
@@ -83,18 +84,25 @@ export async function GET(req: NextRequest) {
 
     const drillHistory = await loadDrillHistory();
     setProgress({ phase: "done" });
-    return NextResponse.json(
-      buildReport(
-        username,
-        days,
-        fromTime,
-        now,
-        analyses,
-        skippedGames,
-        drillHistory,
-        timeClass,
-      ),
+    const report = buildReport(
+      username,
+      fromTime,
+      now,
+      analyses,
+      skippedGames,
+      drillHistory,
+      timeClass,
     );
+    // Per-ply clocks and per-game buckets are analysis inputs the client
+    // never reads — stripping them cuts ~15% off the response.
+    return NextResponse.json({
+      ...report,
+      games: report.games.map((a) => ({
+        ...a,
+        game: { ...a.game, clocks: undefined },
+        clockBuckets: undefined,
+      })),
+    });
   } catch (err) {
     setProgress({ phase: "done" });
     const message = err instanceof Error ? err.message : "Unknown error";

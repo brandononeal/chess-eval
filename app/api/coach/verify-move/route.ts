@@ -6,6 +6,13 @@ export const dynamic = "force-dynamic";
 
 const VERIFY_DEPTH = 14;
 const ACCEPT_LOSS_CP = 50;
+const BASELINE_CACHE_MAX = 50;
+
+// Retrying a drill re-verifies the same starting fen — cache its baseline
+// eval so only the attempted move's position needs a fresh search.
+const g = globalThis as {
+  __verifyBaselines?: Map<string, { cp: number; bestMoveUci: string }>;
+};
 
 // Judges a drill attempt: any move losing less than ACCEPT_LOSS_CP against
 // the engine's best line counts as correct, not just the single top move.
@@ -32,7 +39,15 @@ export async function POST(req: NextRequest) {
   const engine = new NativeEngine();
   await engine.init();
   try {
-    const best = await engine.evaluate(fen, VERIFY_DEPTH);
+    g.__verifyBaselines ??= new Map();
+    let best = g.__verifyBaselines.get(fen);
+    if (!best) {
+      best = await engine.evaluate(fen, VERIFY_DEPTH);
+      if (g.__verifyBaselines.size >= BASELINE_CACHE_MAX) {
+        g.__verifyBaselines.clear();
+      }
+      g.__verifyBaselines.set(fen, best);
+    }
     const after = await engine.evaluate(fenAfter, VERIFY_DEPTH);
     const lossCp = moverIsWhite ? best.cp - after.cp : after.cp - best.cp;
     return NextResponse.json({

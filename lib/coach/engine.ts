@@ -52,9 +52,9 @@ export class NativeEngine {
       this.pendingReject = null;
     };
     this.proc.on("error", (err) => fail(`stockfish error: ${err.message}`));
-    this.proc.on("exit", (code) => {
-      if (this.pendingReject) fail(`stockfish exited with code ${code}`);
-    });
+    this.proc.on("exit", (code) => fail(`stockfish exited with code ${code}`));
+    // Writes after the process dies must not throw from send()/quit().
+    this.proc.stdin.on("error", () => {});
 
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
@@ -127,7 +127,11 @@ export class NativeEngine {
 
   quit(): void {
     if (this.proc) {
-      this.proc.stdin.write("quit\n");
+      try {
+        this.proc.stdin.write("quit\n");
+      } catch {
+        // process already gone — nothing to quit
+      }
       this.proc = null;
     }
   }
