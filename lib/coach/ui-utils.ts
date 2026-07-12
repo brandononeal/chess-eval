@@ -39,6 +39,17 @@ export function formatEval(cp: number): string {
   return `${sign}${pawns.toFixed(1)}`;
 }
 
+/**
+ * Local calendar date key (YYYY-MM-DD) — the app's convention everywhere:
+ * evening games belong to the day they were played, not the UTC day.
+ */
+export function localDateKey(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export function formatDate(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toLocaleDateString(undefined, {
     month: "short",

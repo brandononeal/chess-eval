@@ -1,5 +1,6 @@
 import { Chess } from "chess.js";
-import type { CoachGame, GameResult } from "./types";
+import type { CoachGame, DayActivity, GameResult } from "./types";
+import { localDateKey } from "./ui-utils";
 
 const API = "https://api.chess.com/pub/player";
 const USER_AGENT = "chess-eval-coach (personal training dashboard)";
@@ -159,6 +160,66 @@ function parseGame(raw: ApiGame, username: string): CoachGame | null {
     clocks: extractClocks(raw.pgn, sans.length),
     baseSeconds: baseSecondsFromTimeControl(raw.time_control),
   };
+}
+
+/** Pure aggregation for the activity heatmap — testable without the network. */
+export function dailyActivity(
+  games: Array<{
+    end_time: number;
+    white: { username: string; result: string };
+    black: { username: string; result: string };
+  }>,
+  username: string,
+): DayActivity[] {
+  const lower = username.toLowerCase();
+  const byDay = new Map<string, DayActivity>();
+  for (const game of games) {
+    const date = localDateKey(game.end_time);
+    let day = byDay.get(date);
+    if (!day) {
+      day = { date, games: 0, wins: 0, losses: 0, draws: 0 };
+      byDay.set(date, day);
+    }
+    day.games++;
+    const user =
+      game.white.username.toLowerCase() === lower ? game.white : game.black;
+    const result = toResult(user.result);
+    if (result === "win") day.wins++;
+    else if (result === "loss") day.losses++;
+    else day.draws++;
+  }
+  return [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+/**
+ * Game counts per local day for the heatmap — raw archive fields only,
+ * no PGN parsing or analysis.
+ */
+export async function fetchDailyActivity(
+  username: string,
+  fromEpoch: number,
+  timeClass = "all",
+): Promise<DayActivity[]> {
+  const archives = await fetchArchiveList(username);
+  const fromMonth = monthKey(new Date(fromEpoch * 1000));
+  const wanted = archives.filter(
+    (url) => (url.split("/games/")[1] ?? "") >= fromMonth,
+  );
+
+  const raw: ApiGame[] = [];
+  for (const url of wanted) {
+    raw.push(...(await fetchMonth(url)));
+  }
+
+  return dailyActivity(
+    raw.filter(
+      (g) =>
+        g.end_time >= fromEpoch &&
+        g.rules === "chess" &&
+        (timeClass === "all" || g.time_class === timeClass),
+    ),
+    username,
+  );
 }
 
 export interface FetchGamesResult {

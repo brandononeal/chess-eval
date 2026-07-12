@@ -126,6 +126,11 @@ export interface DailyPoint {
   blunders: number;
 }
 
+/** One cell of the year-long activity heatmap. */
+export interface DayActivity extends ResultTally {
+  date: string;
+}
+
 export interface WeeklyReport {
   username: string;
   fromTime: number;

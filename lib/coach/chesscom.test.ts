@@ -1,6 +1,7 @@
 import {
   baseSecondsFromTimeControl,
   clockToSeconds,
+  dailyActivity,
   extractClocks,
 } from "./chesscom";
 
@@ -34,6 +35,44 @@ describe("extractClocks", () => {
 
   it("returns undefined when there are no clocks", () => {
     expect(extractClocks("1. e4 e5 2. Nf3 Nc6 1-0", 4)).toBeUndefined();
+  });
+});
+
+describe("dailyActivity", () => {
+  // Noon local time on two consecutive days.
+  const day1 = Math.floor(new Date(2026, 6, 1, 12).getTime() / 1000);
+  const day2 = Math.floor(new Date(2026, 6, 2, 12).getTime() / 1000);
+  const game = (end_time: number, userResult: string) => ({
+    end_time,
+    white: { username: "Me", result: userResult },
+    black: { username: "opp", result: "win" },
+  });
+
+  it("groups by local day with W-L-D tallies", () => {
+    const days = dailyActivity(
+      [
+        game(day1, "win"),
+        game(day1, "checkmated"),
+        game(day1, "agreed"),
+        game(day2, "win"),
+      ],
+      "me",
+    );
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({
+      date: "2026-07-01",
+      games: 3,
+      wins: 1,
+      losses: 1,
+      draws: 1,
+    });
+    expect(days[1]).toMatchObject({ date: "2026-07-02", games: 1, wins: 1 });
+  });
+
+  it("files a late-evening game under its local day", () => {
+    const lateEvening = Math.floor(new Date(2026, 6, 1, 23).getTime() / 1000);
+    const days = dailyActivity([game(lateEvening, "win")], "me");
+    expect(days[0].date).toBe("2026-07-01");
   });
 });
 

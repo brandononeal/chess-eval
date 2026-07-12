@@ -73,6 +73,14 @@
   --ledger-divider: #2a221b;
   --ledger-inset: #1a1511;
   --scrim: rgba(12, 9, 6, 0.72);
+
+  /* Contribution-heatmap ramp: empty walnut → full brass. Level 0 must
+     stay clearly lighter than --surface so rest days read as tiles. */
+  --heat-0: #33291e;
+  --heat-1: #5b4728;
+  --heat-2: #866937;
+  --heat-3: #ab8748;
+  --heat-4: #c9a45c;
 }
 
 @media (prefers-color-scheme: light) {
@@ -112,6 +120,12 @@
     --ledger-divider: #e7dcc6;
     --ledger-inset: #f1e9d7;
     --scrim: rgba(43, 33, 24, 0.45);
+
+    --heat-0: #ece3cf;
+    --heat-1: #d9c294;
+    --heat-2: #bfa065;
+    --heat-3: #a3823f;
+    --heat-4: #8c6d2f;
 
     --board-light: #e7d9b5;
     --board-dark: #966a3a;
