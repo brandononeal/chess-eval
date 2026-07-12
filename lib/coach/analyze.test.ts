@@ -1,5 +1,10 @@
-import { bucketFor, buildReport } from "./analyze";
-import type { GameAnalysis } from "./types";
+import {
+  bucketFor,
+  buildPhaseSummary,
+  buildReport,
+  phaseFor,
+} from "./analyze";
+import type { BucketTally, GameAnalysis, GamePhase } from "./types";
 
 describe("bucketFor", () => {
   it("buckets clock times", () => {
@@ -9,6 +14,57 @@ describe("bucketFor", () => {
     expect(bucketFor(10)).toBe("s10to30");
     expect(bucketFor(9.9)).toBe("under10");
     expect(bucketFor(0)).toBe("under10");
+  });
+});
+
+describe("phaseFor", () => {
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const KP_ENDING = "8/5k2/8/8/4P3/4K3/8/8 w - - 0 30";
+
+  it("classifies early full-board moves as opening", () => {
+    expect(phaseFor(5, START)).toBe("opening");
+  });
+
+  it("classifies late full-board moves as middlegame", () => {
+    expect(phaseFor(30, START)).toBe("middlegame");
+  });
+
+  it("classifies few-piece positions as endgame regardless of ply", () => {
+    expect(phaseFor(14, KP_ENDING)).toBe("endgame");
+    expect(phaseFor(80, KP_ENDING)).toBe("endgame");
+  });
+});
+
+describe("buildPhaseSummary", () => {
+  const withTallies = (
+    tallies: Record<GamePhase, BucketTally>,
+  ): GameAnalysis => ({ phaseTallies: tallies }) as unknown as GameAnalysis;
+
+  it("recommends the specialization for the worst phase", () => {
+    const summary = buildPhaseSummary([
+      withTallies({
+        opening: { moves: 100, blunders: 2, mistakes: 3 }, // 5%
+        middlegame: { moves: 200, blunders: 10, mistakes: 10 }, // 10%
+        endgame: { moves: 60, blunders: 10, mistakes: 5 }, // 25%
+      }),
+    ]);
+    expect(summary.recommendation?.focus).toBe("Endgames");
+    expect(summary.recommendation?.reason).toContain("endgame");
+  });
+
+  it("ignores phases with too few moves", () => {
+    const summary = buildPhaseSummary([
+      withTallies({
+        opening: { moves: 100, blunders: 5, mistakes: 5 }, // 10%
+        middlegame: { moves: 100, blunders: 2, mistakes: 2 }, // 4%
+        endgame: { moves: 4, blunders: 4, mistakes: 0 }, // 100% but tiny sample
+      }),
+    ]);
+    expect(summary.recommendation?.focus).toBe("Openings");
+  });
+
+  it("returns null with no data", () => {
+    expect(buildPhaseSummary([]).recommendation).toBeNull();
   });
 });
 

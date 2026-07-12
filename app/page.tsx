@@ -3,9 +3,11 @@
 import { computeGrade, nextLevelPlan } from "@/lib/coach/grade";
 import {
   CLOCK_BUCKET_LABELS,
+  STUDY_FOCI,
   TIME_CLASSES,
   type GameAnalysis,
   type IssueSeverity,
+  type StudyFocus,
   type TimePressureSummary,
   type WeeklyReport,
 } from "@/lib/coach/types";
@@ -24,6 +26,7 @@ import {
 } from "@/lib/coach/ui-utils";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ActivityHeatmap } from "./components/ActivityHeatmap";
 import { DrillCard } from "./components/DrillCard";
 import { GameReplay } from "./components/GameReplay";
 import { Sparkline } from "./components/Sparkline";
@@ -64,21 +67,26 @@ function SeverityBadge({
 }
 
 function Section({
-  step,
   title,
+  detail,
   children,
 }: {
-  step: number;
   title: string;
+  detail?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-5">
       <h2 className="double-rule font-display text-lg font-semibold">
         <span className="mr-2 font-mono text-sm font-normal text-ink-faint">
-          {step}
+          ⅓
         </span>
         {title}
+        {detail && (
+          <span className="ml-3 font-sans text-xs font-normal text-ink-faint">
+            {detail}
+          </span>
+        )}
       </h2>
       {children}
     </section>
@@ -159,9 +167,11 @@ function TallyValue({
 
 function GameRow({
   analysis,
+  analyzed,
   onReplay,
 }: {
   analysis: GameAnalysis;
+  analyzed: boolean;
   onReplay: (target: ReplayTarget) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -196,6 +206,11 @@ function GameRow({
         <span className="hidden flex-1 truncate font-display text-[13px] italic text-ink-soft sm:block">
           {game.openingName}
         </span>
+        {analyzed && (
+          <span className="text-xs text-brass" title="Analyzed in replay">
+            ✓
+          </span>
+        )}
         <span className="font-mono text-xs text-ink-soft">
           ACPL {acpl}
         </span>
@@ -283,6 +298,16 @@ export default function Coach() {
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState<ReplayTarget | null>(null);
   const [progressText, setProgressText] = useState("");
+  const [refreshNonce, setRefreshNonce] = useState(0);
+
+  const logStudy = async (focus: StudyFocus, minutes: number) => {
+    await fetch("/api/coach/study-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ focus, minutes }),
+    }).catch(() => {});
+    setRefreshNonce((n) => n + 1);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -307,7 +332,7 @@ export default function Coach() {
       });
 
     return () => controller.abort();
-  }, [days, tc]);
+  }, [days, tc, refreshNonce]);
 
   useEffect(() => {
     if (!loading) {
@@ -422,9 +447,46 @@ export default function Coach() {
           </div>
         )}
 
+        {report && !loading && (
+          <div className="mt-5">
+            <div className="kicker mb-1">This week&apos;s thirds</div>
+            <div className="flex flex-wrap gap-x-8 gap-y-1 text-[13px] text-ink-soft">
+              <span>
+                Tactics ·{" "}
+                <span className="font-mono">
+                  {report.thirds.drillAttempts}
+                </span>{" "}
+                drill attempts
+              </span>
+              <span>
+                Play &amp; Analyze ·{" "}
+                <span className="font-mono">{report.totals.games}</span> played
+                /{" "}
+                <span className="font-mono">
+                  {report.thirds.analyzedUrls.length}
+                </span>{" "}
+                analyzed
+              </span>
+              <span>
+                Study ·{" "}
+                <span className="font-mono">
+                  {report.thirds.studySessions}
+                </span>{" "}
+                {report.thirds.studySessions === 1 ? "session" : "sessions"}
+                {report.thirds.studyMinutes > 0 && (
+                  <span className="font-mono">
+                    {" "}
+                    ({report.thirds.studyMinutes}m)
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
         <p className="mt-4 text-sm text-ink-faint">
-          {report ? `${report.username} · ` : ""}Play → Analyze → Openings →
-          Puzzles
+          {report ? `${report.username} · ` : ""}the one-third rule: Tactics ·
+          Play &amp; Analyze · Study
         </p>
       </header>
 
@@ -444,7 +506,24 @@ export default function Coach() {
 
       {report && !loading && (
         <>
-          <Section step={1} title="Play">
+          <Section title="Tactics" detail="drills built from your own mistakes">
+            {report.drills.length === 0 ? (
+              <p className="text-ink-soft">
+                No blunders big enough to drill — nice week.
+              </p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {report.drills.map((drill, i) => (
+                  <DrillCard key={drill.id} drill={drill} index={i} />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title="Play & Analyze"
+            detail="games only count if you really analyze them"
+          >
             {report.totals.games === 0 ? (
               <p className="text-ink-soft">
                 No games in the last {days} days. The loop starts with Play.
@@ -471,6 +550,12 @@ export default function Coach() {
                 <TimePressureCard tp={report.timePressure} />
               </div>
             )}
+            <div className="card px-6 py-4">
+              <div className="kicker mb-2">
+                Daily games{tc !== "all" ? ` · ${tc}` : ""}
+              </div>
+              <ActivityHeatmap timeClass={tc} />
+            </div>
             {report.ratingSeries.length >= 2 && (
               <div className="card flex flex-wrap gap-10 px-6 py-4">
                 <div>
@@ -537,21 +622,60 @@ export default function Coach() {
                 {report.skippedGames} older games in range not analyzed).
               </p>
             )}
-          </Section>
-
-          <Section step={2} title="Analyze">
+            <p className="text-sm text-ink-soft">
+              Analyzed{" "}
+              <span className="font-mono">
+                {report.thirds.analyzedUrls.length}
+              </span>{" "}
+              of <span className="font-mono">{report.totals.games}</span> games
+              — step through a game in the replay to mark it{" "}
+              <span className="text-brass">✓</span>.
+            </p>
             <div className="border-t border-[color:var(--ledger-divider)]">
               {report.games.map((analysis) => (
                 <GameRow
                   key={analysis.game.url}
                   analysis={analysis}
+                  analyzed={report.thirds.analyzedUrls.includes(
+                    analysis.game.url,
+                  )}
                   onReplay={setReplay}
                 />
               ))}
             </div>
           </Section>
 
-          <Section step={3} title="Openings">
+          <Section
+            title="Study"
+            detail="one specialization at a time — weakest first"
+          >
+            {report.phases.recommendation && (
+              <div className="card px-6 py-4">
+                <div className="kicker mb-1">Your third</div>
+                <div className="font-display text-xl font-semibold text-brass">
+                  {report.phases.recommendation.focus}
+                </div>
+                <p className="mt-1 max-w-[70ch] text-sm text-ink-soft">
+                  {report.phases.recommendation.reason}
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-ink-faint">Log a study session:</span>
+              {STUDY_FOCI.map((focus) => (
+                <button
+                  key={focus}
+                  onClick={() => logStudy(focus, 15)}
+                  className={`rounded-lg border px-3 py-1 transition-colors hover:bg-raised ${
+                    report.phases.recommendation?.focus === focus
+                      ? "border-brass text-brass"
+                      : "border-line"
+                  }`}
+                >
+                  +15m {focus}
+                </button>
+              ))}
+            </div>
             {report.openings.length === 0 ? (
               <p className="text-ink-soft">No opening data yet.</p>
             ) : (
@@ -619,20 +743,6 @@ export default function Coach() {
               </div>
             )}
           </Section>
-
-          <Section step={4} title="Puzzles">
-            {report.drills.length === 0 ? (
-              <p className="text-ink-soft">
-                No blunders big enough to drill — nice week.
-              </p>
-            ) : (
-              <div className="grid gap-6 sm:grid-cols-2">
-                {report.drills.map((drill, i) => (
-                  <DrillCard key={drill.id} drill={drill} index={i} />
-                ))}
-              </div>
-            )}
-          </Section>
         </>
       )}
 
@@ -641,7 +751,11 @@ export default function Coach() {
           key={`${replay.analysis.game.url}#${replay.initialPly ?? 0}`}
           analysis={replay.analysis}
           initialPly={replay.initialPly}
-          onClose={() => setReplay(null)}
+          onClose={() => {
+            setReplay(null);
+            // Refresh so a newly-analyzed game gets its ✓ immediately.
+            setRefreshNonce((n) => n + 1);
+          }}
         />
       )}
     </main>

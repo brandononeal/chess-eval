@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import type { DrillRecord, GameAnalysis } from "./types";
+import type { DrillRecord, GameAnalysis, StudyLogEntry } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
 // Bump when the shape of cached GameAnalysis changes.
-export const CACHE_VERSION = 3;
+export const CACHE_VERSION = 4;
 
 export type AnalysisCache = Record<string, GameAnalysis>;
 export type DrillHistory = Record<string, DrillRecord>;
@@ -41,6 +41,19 @@ export const loadDrillHistory = () =>
   readJson<DrillHistory>("drill-history.json", {});
 export const saveDrillHistory = (history: DrillHistory) =>
   writeJson("drill-history.json", history);
+
+/** Game URL → epoch seconds when the user replayed through it. */
+export type AnalyzedGames = Record<string, number>;
+
+export const loadAnalyzedGames = () =>
+  readJson<AnalyzedGames>("analyzed-games.json", {});
+export const saveAnalyzedGames = (games: AnalyzedGames) =>
+  writeJson("analyzed-games.json", games);
+
+export const loadStudyLog = () =>
+  readJson<StudyLogEntry[]>("study-log.json", []);
+export const saveStudyLog = (log: StudyLogEntry[]) =>
+  writeJson("study-log.json", log);
 
 export const cacheKey = (url: string, depth: number) =>
   `${url}@${depth}v${CACHE_VERSION}`;

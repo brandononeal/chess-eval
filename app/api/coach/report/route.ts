@@ -5,7 +5,9 @@ import { setProgress } from "@/lib/coach/progress";
 import {
   cacheKey,
   loadAnalysisCache,
+  loadAnalyzedGames,
   loadDrillHistory,
+  loadStudyLog,
   saveAnalysisCache,
 } from "@/lib/coach/storage";
 import { TIME_CLASSES, type GameAnalysis } from "@/lib/coach/types";
@@ -82,7 +84,11 @@ export async function GET(req: NextRequest) {
       analyses.push(cache[cacheKey(game.url, depth)]);
     }
 
-    const drillHistory = await loadDrillHistory();
+    const [drillHistory, analyzedGames, studyLog] = await Promise.all([
+      loadDrillHistory(),
+      loadAnalyzedGames(),
+      loadStudyLog(),
+    ]);
     setProgress({ phase: "done" });
     const report = buildReport(
       username,
@@ -92,6 +98,8 @@ export async function GET(req: NextRequest) {
       skippedGames,
       drillHistory,
       timeClass,
+      analyzedGames,
+      studyLog,
     );
     // Per-ply clocks and per-game buckets are analysis inputs the client
     // never reads — stripping them cuts ~15% off the response.

@@ -47,6 +47,10 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
   // Only close on clicks that STARTED on the scrim — a text-selection drag
   // from inside the panel that ends on the scrim must not dismiss the modal.
   const scrimPress = useRef(false);
+  // "Really analyzed" (one-third rule): visiting at least half the game's
+  // positions counts the game as analyzed, reported once.
+  const visitedPlies = useRef(new Set<number>());
+  const reportedAnalyzed = useRef(false);
 
   const { startFen, moves } = useMemo(() => {
     const chess = new Chess();
@@ -111,7 +115,21 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
     moveListRef.current
       ?.querySelector('[data-current="true"]')
       ?.scrollIntoView({ block: "nearest" });
-  }, [ply]);
+
+    visitedPlies.current.add(ply);
+    if (
+      !reportedAnalyzed.current &&
+      moves.length > 0 &&
+      visitedPlies.current.size >= Math.ceil(moves.length / 2)
+    ) {
+      reportedAnalyzed.current = true;
+      fetch("/api/coach/analyzed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: game.url }),
+      }).catch(() => {});
+    }
+  }, [ply, moves.length, game.url]);
 
   const currentEval = evals[ply] ?? 0;
   const controls: Array<[string, () => void]> = [

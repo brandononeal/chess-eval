@@ -9,14 +9,20 @@ import type {
   Drill,
   DrillRecord,
   GameAnalysis,
+  GamePhase,
   IssueSeverity,
   MoveIssue,
   OpeningSummary,
+  PhaseSummary,
   RatingPoint,
   ResultTally,
+  StudyFocus,
+  StudyLogEntry,
+  ThirdsActivity,
   TimePressureSummary,
   WeeklyReport,
 } from "./types";
+import { errorRate, localDateKey } from "./ui-utils";
 
 const EVAL_CLAMP = 1000;
 const DECIDED_THRESHOLD = 800; // skip issue-flagging in already-decided positions
@@ -41,6 +47,28 @@ export function bucketFor(clockSeconds: number): ClockBucket {
   if (clockSeconds < 10) return "under10";
   if (clockSeconds <= 30) return "s10to30";
   return "over30";
+}
+
+const OPENING_MAX_PLY = 16; // through move 8
+const ENDGAME_MAX_PIECES = 12; // kings included
+
+/**
+ * Simple phase heuristic: few pieces = endgame regardless of move number;
+ * otherwise the first 8 moves are the opening.
+ */
+export function phaseFor(ply: number, fen: string): GamePhase {
+  const pieces = fen.split(" ")[0].replace(/[^a-zA-Z]/g, "").length;
+  if (pieces <= ENDGAME_MAX_PIECES) return "endgame";
+  if (ply <= OPENING_MAX_PLY) return "opening";
+  return "middlegame";
+}
+
+export function emptyPhaseTallies(): Record<GamePhase, BucketTally> {
+  return {
+    opening: { moves: 0, blunders: 0, mistakes: 0 },
+    middlegame: { moves: 0, blunders: 0, mistakes: 0 },
+    endgame: { moves: 0, blunders: 0, mistakes: 0 },
+  };
 }
 
 export function emptyBuckets(): Record<ClockBucket, BucketTally> {
@@ -83,6 +111,7 @@ export async function analyzeGame(
 
   const issues: MoveIssue[] = [];
   const clockBuckets = game.clocks ? emptyBuckets() : undefined;
+  const phaseTallies = emptyPhaseTallies();
   let totalLoss = 0;
   let userMoveCount = 0;
 
@@ -99,6 +128,7 @@ export async function analyzeGame(
     totalLoss += Math.max(0, loss);
 
     const clockSeconds = clockEnteringMove(game, ply);
+    const phase = phaseFor(ply + 1, fens[ply]);
     if (Math.abs(evalBefore) >= DECIDED_THRESHOLD) continue;
     const severity = severityFor(loss);
 
@@ -108,6 +138,11 @@ export async function analyzeGame(
       if (severity === "blunder") bucket.blunders++;
       else if (severity === "mistake") bucket.mistakes++;
     }
+
+    const phaseTally = phaseTallies[phase];
+    phaseTally.moves++;
+    if (severity === "blunder") phaseTally.blunders++;
+    else if (severity === "mistake") phaseTally.mistakes++;
 
     if (!severity) continue;
 
@@ -122,6 +157,7 @@ export async function analyzeGame(
       fenBefore: fens[ply],
       bestMoveSan: uciToSan(fens[ply], bestMoves[ply]),
       clockSeconds,
+      phase,
     });
   }
 
@@ -143,9 +179,53 @@ export async function analyzeGame(
     acpl: userMoveCount > 0 ? Math.round(totalLoss / userMoveCount) : 0,
     repertoire: checkRepertoire(game.sans, game.userColor),
     clockBuckets,
+    phaseTallies,
     lostOnTime,
     lostOnTimeWhileWinning: lostOnTime && finalEdge >= 150,
     evals,
+  };
+}
+
+const PHASE_TO_FOCUS: Record<GamePhase, StudyFocus> = {
+  opening: "Openings",
+  endgame: "Endgames",
+  middlegame: "Positional Chess",
+};
+
+const MIN_PHASE_MOVES = 50;
+
+/**
+ * The one-third rule says the study third should target the weakest area.
+ * Recommend the specialization for the phase with the worst error rate.
+ */
+export function buildPhaseSummary(analyses: GameAnalysis[]): PhaseSummary {
+  const tallies = emptyPhaseTallies();
+  for (const a of analyses) {
+    if (!a.phaseTallies) continue; // tolerate pre-v4 cache entries
+    for (const key of Object.keys(tallies) as GamePhase[]) {
+      tallies[key].moves += a.phaseTallies[key].moves;
+      tallies[key].blunders += a.phaseTallies[key].blunders;
+      tallies[key].mistakes += a.phaseTallies[key].mistakes;
+    }
+  }
+
+  const rated = (Object.keys(tallies) as GamePhase[])
+    .filter((p) => tallies[p].moves >= MIN_PHASE_MOVES)
+    .sort((a, b) => errorRate(tallies[b]) - errorRate(tallies[a]));
+
+  const worst = rated[0];
+  if (!worst || errorRate(tallies[worst]) === 0) {
+    return { tallies, recommendation: null };
+  }
+
+  const rate = (p: GamePhase) => `${(errorRate(tallies[p]) * 100).toFixed(1)}%`;
+  const best = rated[rated.length - 1];
+  return {
+    tallies,
+    recommendation: {
+      focus: PHASE_TO_FOCUS[worst],
+      reason: `Your ${worst} error rate is ${rate(worst)} (vs ${rate(best)} in the ${best}) — the weakest phase across ${tallies[worst].moves} ${worst} moves.`,
+    },
   };
 }
 
@@ -239,15 +319,6 @@ function buildRatingSeries(analyses: GameAnalysis[]): {
   return { series, cls };
 }
 
-// Local calendar date — the ledger and every other date in the app render
-// local time, so grouping by UTC day would file evening games under tomorrow.
-function localDateKey(epochSeconds: number): string {
-  const d = new Date(epochSeconds * 1000);
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
 function buildDaily(analyses: GameAnalysis[]): DailyPoint[] {
   const byDate = new Map<
     string,
@@ -312,6 +383,40 @@ function buildOpenings(analyses: GameAnalysis[]): OpeningSummary[] {
   return [...map.values()].sort((a, b) => b.games - a.games);
 }
 
+function buildThirds(
+  fromTime: number,
+  toTime: number,
+  analyses: GameAnalysis[],
+  drillHistory: Record<string, DrillRecord>,
+  analyzedGames: Record<string, number>,
+  studyLog: StudyLogEntry[],
+): ThirdsActivity {
+  const inWindow = (t: number) => t >= fromTime && t <= toTime;
+
+  const touched = Object.values(drillHistory).filter((r) =>
+    inWindow(r.updatedAt),
+  );
+  const gameUrls = new Set(analyses.map((a) => a.game.url));
+  const analyzedUrls = Object.entries(analyzedGames)
+    .filter(([url, t]) => inWindow(t) && gameUrls.has(url))
+    .map(([url]) => url);
+
+  const sessions = studyLog.filter((e) => inWindow(e.t));
+  const studyByFocus: Record<string, number> = {};
+  for (const e of sessions) {
+    studyByFocus[e.focus] = (studyByFocus[e.focus] ?? 0) + e.minutes;
+  }
+
+  return {
+    drillAttempts: touched.reduce((n, r) => n + r.fails + (r.passed ? 1 : 0), 0),
+    drillPasses: touched.filter((r) => r.passed).length,
+    analyzedUrls,
+    studySessions: sessions.length,
+    studyMinutes: sessions.reduce((n, e) => n + e.minutes, 0),
+    studyByFocus,
+  };
+}
+
 export function buildReport(
   username: string,
   fromTime: number,
@@ -320,6 +425,8 @@ export function buildReport(
   skippedGames: number,
   drillHistory: Record<string, DrillRecord> = {},
   timeClassFilter = "all",
+  analyzedGames: Record<string, number> = {},
+  studyLog: StudyLogEntry[] = [],
 ): WeeklyReport {
   const totals = emptyTally();
   const byTimeClass: Record<string, ResultTally> = {};
@@ -348,5 +455,14 @@ export function buildReport(
     ratingSeries,
     ratingSeriesClass,
     daily: buildDaily(analyses),
+    phases: buildPhaseSummary(analyses),
+    thirds: buildThirds(
+      fromTime,
+      toTime,
+      analyses,
+      drillHistory,
+      analyzedGames,
+      studyLog,
+    ),
   };
 }

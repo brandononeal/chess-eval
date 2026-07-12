@@ -35,6 +35,7 @@ export interface MoveIssue {
   bestMoveSan: string;
   /** User's clock (seconds) when this move was made, if known. */
   clockSeconds?: number;
+  phase: GamePhase;
 }
 
 export type ClockBucket = "over30" | "s10to30" | "under10";
@@ -54,6 +55,38 @@ export interface BucketTally {
   mistakes: number;
 }
 
+export type GamePhase = "opening" | "middlegame" | "endgame";
+
+/** The one-third rule's specialization options for the study third. */
+export type StudyFocus = "Openings" | "Endgames" | "Positional Chess";
+
+export const STUDY_FOCI: StudyFocus[] = [
+  "Openings",
+  "Endgames",
+  "Positional Chess",
+];
+
+export interface PhaseSummary {
+  tallies: Record<GamePhase, BucketTally>;
+  recommendation: { focus: StudyFocus; reason: string } | null;
+}
+
+export interface StudyLogEntry {
+  t: number;
+  focus: StudyFocus;
+  minutes: number;
+}
+
+/** Activity per third of the one-third rule, within the report window. */
+export interface ThirdsActivity {
+  drillAttempts: number;
+  drillPasses: number;
+  analyzedUrls: string[];
+  studySessions: number;
+  studyMinutes: number;
+  studyByFocus: Record<string, number>;
+}
+
 export interface RepertoireCheck {
   inRepertoire: boolean | null;
   note: string;
@@ -66,6 +99,7 @@ export interface GameAnalysis {
   acpl: number;
   repertoire: RepertoireCheck;
   clockBuckets?: Record<ClockBucket, BucketTally>;
+  phaseTallies: Record<GamePhase, BucketTally>;
   lostOnTime: boolean;
   lostOnTimeWhileWinning: boolean;
   /** Eval after each position (start + one per ply), White POV, clamped. */
@@ -148,4 +182,6 @@ export interface WeeklyReport {
   /** Ratings are per-class on Chess.com — the series only ever charts one. */
   ratingSeriesClass: string | null;
   daily: DailyPoint[];
+  phases: PhaseSummary;
+  thirds: ThirdsActivity;
 }
