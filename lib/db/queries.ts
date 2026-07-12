@@ -11,6 +11,7 @@ import {
   analyzedGames,
   drillHistory,
   gameAnalyses,
+  reportProgress,
   studyLog,
   users,
 } from "./schema";
@@ -48,6 +49,58 @@ export async function getOrCreateUserId(username: string): Promise<number> {
     .where(eq(users.chesscomUsername, u))
     .limit(1);
   return again[0].id;
+}
+
+/** Look up a user without creating one — for read-only endpoints. */
+export async function getUserId(username: string): Promise<number | null> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.chesscomUsername, username.toLowerCase()))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+// ── Per-user report-build progress (replaces the globalThis singleton) ──────
+
+export type ReportPhase = "idle" | "fetching" | "analyzing" | "done";
+export interface Progress {
+  phase: ReportPhase;
+  current: number;
+  total: number;
+}
+
+export async function getReportProgress(userId: number): Promise<Progress> {
+  const rows = await db
+    .select()
+    .from(reportProgress)
+    .where(eq(reportProgress.userId, userId))
+    .limit(1);
+  if (!rows.length) return { phase: "idle", current: 0, total: 0 };
+  return {
+    phase: rows[0].phase as ReportPhase,
+    current: rows[0].current,
+    total: rows[0].total,
+  };
+}
+
+export async function setReportProgress(
+  userId: number,
+  update: Partial<Progress>,
+): Promise<void> {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (update.phase !== undefined) set.phase = update.phase;
+  if (update.current !== undefined) set.current = update.current;
+  if (update.total !== undefined) set.total = update.total;
+  await db
+    .insert(reportProgress)
+    .values({
+      userId,
+      phase: update.phase ?? "idle",
+      current: update.current ?? 0,
+      total: update.total ?? 0,
+    })
+    .onConflictDoUpdate({ target: reportProgress.userId, set });
 }
 
 // ── Shared analysis cache (not user-scoped) ────────────────────────────────

@@ -369,9 +369,10 @@ export default function Coach() {
       setProgressText("");
       return;
     }
+    const qs = username ? `?username=${encodeURIComponent(username)}` : "";
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/api/coach/progress");
+        const res = await fetch(`/api/coach/progress${qs}`);
         const p = await res.json();
         if (p.phase === "analyzing" && p.total > 0) {
           setProgressText(`Analyzing game ${p.current}/${p.total}…`);
@@ -383,7 +384,7 @@ export default function Coach() {
       }
     }, 1500);
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [loading, username]);
 
   const grade = report ? computeGrade(report) : null;
   const plan = report ? nextLevelPlan(report) : null;

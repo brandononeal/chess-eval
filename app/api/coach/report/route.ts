@@ -1,7 +1,6 @@
 import { analyzeGame, buildReport } from "@/lib/coach/analyze";
 import { fetchGamesSince } from "@/lib/coach/chesscom";
 import { NativeEngine } from "@/lib/coach/engine";
-import { setProgress } from "@/lib/coach/progress";
 import { type GameAnalysis } from "@/lib/coach/types";
 import { clampInt, normalizeTimeClass } from "@/lib/coach/validation";
 import {
@@ -11,6 +10,7 @@ import {
   loadDrillHistory,
   loadStudyLog,
   saveAnalysis,
+  setReportProgress,
 } from "@/lib/db/queries";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -39,14 +39,14 @@ export async function GET(req: NextRequest) {
   const fromTime = now - days * 86_400;
 
   try {
-    setProgress({ phase: "fetching", current: 0, total: 0 });
+    const userId = await getOrCreateUserId(username);
+    await setReportProgress(userId, { phase: "fetching", current: 0, total: 0 });
     const { games: toAnalyze, totalInRange } = await fetchGamesSince(
       username,
       fromTime,
       { timeClass, limit: MAX_GAMES },
     );
     const skippedGames = totalInRange - toAnalyze.length;
-    const userId = await getOrCreateUserId(username);
 
     // Shared cache: pull what's already analyzed, run Stockfish on the rest.
     const cached = refresh
@@ -58,7 +58,11 @@ export async function GET(req: NextRequest) {
     const missing = toAnalyze.filter((g) => !cached[g.url]);
 
     if (missing.length > 0) {
-      setProgress({ phase: "analyzing", current: 0, total: missing.length });
+      await setReportProgress(userId, {
+        phase: "analyzing",
+        current: 0,
+        total: missing.length,
+      });
       const engine = new NativeEngine();
       await engine.init();
       try {
@@ -66,7 +70,7 @@ export async function GET(req: NextRequest) {
           const analysis = await analyzeGame(missing[i], engine, depth);
           await saveAnalysis(missing[i].url, depth, analysis);
           cached[missing[i].url] = analysis;
-          setProgress({ current: i + 1 });
+          await setReportProgress(userId, { current: i + 1 });
         }
       } finally {
         engine.quit();
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
       loadAnalyzedGames(userId),
       loadStudyLog(userId),
     ]);
-    setProgress({ phase: "done" });
+    await setReportProgress(userId, { phase: "done" });
     const report = buildReport(
       username,
       fromTime,
@@ -102,7 +106,8 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err) {
-    setProgress({ phase: "done" });
+    // The client's report fetch itself fails here, which stops its progress
+    // poll — no need to write a terminal progress row.
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });
   }
