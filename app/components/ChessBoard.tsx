@@ -2,7 +2,6 @@
 
 import { makeMove } from "@/lib/chess-utils";
 import { useContainerWidth } from "@/lib/useContainerWidth";
-import { useDarkReader } from "@/lib/useDarkReader";
 import { useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { SquareHandlerArgs } from "react-chessboard/dist/types";
@@ -35,7 +34,6 @@ export function ChessBoard({
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const { ref: containerRef, width: boardWidth } =
     useContainerWidth<HTMLDivElement>();
-  const darkReader = useDarkReader();
 
   const handlePieceDrop = ({
     sourceSquare,
@@ -84,9 +82,6 @@ export function ChessBoard({
     fontWeight: 600,
     letterSpacing: "0.02em",
   };
-  const darkNotationOverride = darkReader
-    ? { color: "#d1d5db", fontWeight: "bold" as const }
-    : undefined;
 
   return (
     <div
@@ -115,23 +110,20 @@ export function ChessBoard({
             color: a.color,
           })),
           darkSquareStyle: {
-            backgroundColor: darkReader ? "#4b4847" : "var(--board-dark)",
-            backgroundImage: darkReader
-              ? undefined
-              : "linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10))",
+            backgroundColor: "var(--board-dark)",
+            backgroundImage:
+              "linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10))",
           },
           lightSquareStyle: {
-            backgroundColor: darkReader ? "#7a7572" : "var(--board-light)",
+            backgroundColor: "var(--board-light)",
           },
           darkSquareNotationStyle: {
             ...notationStyle,
             color: "var(--board-notation-on-dark)",
-            ...darkNotationOverride,
           },
           lightSquareNotationStyle: {
             ...notationStyle,
             color: "var(--board-notation-on-light)",
-            ...darkNotationOverride,
           },
         }}
       />

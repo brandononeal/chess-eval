@@ -39,14 +39,19 @@
   --severity-mistake-tint: #e08a3c1f;
   --severity-inaccuracy-tint: #efce591f;
 
-  /* The board never themes — walnut in every room. */
-  --board-light: #dcc8a0;
-  --board-dark: #7b5231;
-  --board-notation-on-light: #6e4a29;
-  --board-notation-on-dark: #e7d5ae;
+  /* Walnut board, tuned per room: dimmed for the dark study so it doesn't
+     glare, brightened toward cream paper in the light block below. */
+  --board-light: #c2ab80;
+  --board-dark: #63421f;
+  --board-notation-on-light: #5d3f20;
+  --board-notation-on-dark: #d9c69e;
   --board-selected: #c9a45c;
   --board-last-move: #c9a45c4d;
   --board-radius: 6px;
+  --frame-inner: #453626;
+  --frame-wood: #241c14;
+  --frame-outer: #4a3a27;
+  --frame-drop: rgba(0, 0, 0, 0.7);
 
   /* The telestrator pair: engine-suggestion green, player-error red.
      Solid for borders/text, -wash for fills, -d9 alpha for board arrows. */
@@ -107,6 +112,15 @@
     --ledger-divider: #e7dcc6;
     --ledger-inset: #f1e9d7;
     --scrim: rgba(43, 33, 24, 0.45);
+
+    --board-light: #e7d9b5;
+    --board-dark: #966a3a;
+    --board-notation-on-light: #77522b;
+    --board-notation-on-dark: #f0e5c8;
+    --frame-inner: #a8916b;
+    --frame-wood: #6b543a;
+    --frame-outer: #8f764f;
+    --frame-drop: rgba(43, 33, 24, 0.35);
   }
 }
 
@@ -165,10 +179,10 @@ body {
   .board-frame {
     border-radius: var(--board-radius);
     box-shadow:
-      0 0 0 1px #453626,
-      0 0 0 5px #241c14,
-      0 0 0 6px #4a3a27,
-      0 18px 40px -18px rgba(0, 0, 0, 0.7);
+      0 0 0 1px var(--frame-inner),
+      0 0 0 5px var(--frame-wood),
+      0 0 0 6px var(--frame-outer),
+      0 18px 40px -18px var(--frame-drop);
   }
 
   .well {
@@ -200,6 +214,14 @@ body {
 .chess-pieces {
   --darkreader-text-000000: #000000 !important;
   --darkreader-text-ffffff: #ffffff !important;
+}
+
+/* In the dark study, pure-white pieces glare — warm them toward cream.
+   Light mode keeps full white. */
+@media (prefers-color-scheme: dark) {
+  .chess-pieces [data-piece^="w"] svg {
+    filter: brightness(0.91) sepia(0.14);
+  }
 }
 
 .eval-bar {
