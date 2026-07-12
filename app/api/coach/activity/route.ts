@@ -1,11 +1,10 @@
 import { fetchDailyActivity } from "@/lib/coach/chesscom";
-import { TIME_CLASSES } from "@/lib/coach/types";
+import { clampInt, normalizeTimeClass } from "@/lib/coach/validation";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_DAYS = 365;
-const TIME_CLASS_SET = new Set<string>(TIME_CLASSES);
 
 // Games-per-day counts for the contribution heatmap. Cheap by design:
 // month archives are cached in-memory and nothing gets PGN-parsed.
@@ -18,12 +17,8 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  const days = Math.min(
-    366,
-    Math.max(30, Number(params.get("days")) || DEFAULT_DAYS),
-  );
-  const tcParam = params.get("tc") ?? "all";
-  const timeClass = TIME_CLASS_SET.has(tcParam) ? tcParam : "all";
+  const days = clampInt(params.get("days"), 30, 366, DEFAULT_DAYS);
+  const timeClass = normalizeTimeClass(params.get("tc"));
   const fromTime = Math.floor(Date.now() / 1000) - days * 86_400;
 
   try {

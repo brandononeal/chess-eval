@@ -10,7 +10,8 @@ import {
   loadStudyLog,
   saveAnalysisCache,
 } from "@/lib/coach/storage";
-import { TIME_CLASSES, type GameAnalysis } from "@/lib/coach/types";
+import { type GameAnalysis } from "@/lib/coach/types";
+import { clampInt, normalizeTimeClass } from "@/lib/coach/validation";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,6 @@ const DEFAULT_DAYS = 7;
 const MAX_DAYS = 90;
 const DEFAULT_DEPTH = 12;
 const MAX_GAMES = 50;
-const TIME_CLASS_SET = new Set<string>(TIME_CLASSES);
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
@@ -30,14 +30,10 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  const days = Math.min(
-    MAX_DAYS,
-    Math.max(1, Number(params.get("days")) || DEFAULT_DAYS),
-  );
-  const depth = Math.min(20, Number(params.get("depth")) || DEFAULT_DEPTH);
+  const days = clampInt(params.get("days"), 1, MAX_DAYS, DEFAULT_DAYS);
+  const depth = clampInt(params.get("depth"), 1, 20, DEFAULT_DEPTH);
   const refresh = params.get("refresh") === "1";
-  const tcParam = params.get("tc") ?? "all";
-  const timeClass = TIME_CLASS_SET.has(tcParam) ? tcParam : "all";
+  const timeClass = normalizeTimeClass(params.get("tc"));
 
   const now = Math.floor(Date.now() / 1000);
   const fromTime = now - days * 86_400;

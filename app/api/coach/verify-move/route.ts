@@ -1,4 +1,5 @@
 import { NativeEngine, uciToSan } from "@/lib/coach/engine";
+import { isValidFen } from "@/lib/coach/validation";
 import { Chess } from "chess.js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -18,7 +19,7 @@ const g = globalThis as {
 // the engine's best line counts as correct, not just the single top move.
 export async function POST(req: NextRequest) {
   const { fen, san } = await req.json();
-  if (typeof fen !== "string" || typeof san !== "string") {
+  if (!isValidFen(fen) || typeof san !== "string") {
     return NextResponse.json({ error: "fen and san required" }, { status: 400 });
   }
 
