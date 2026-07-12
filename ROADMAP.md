@@ -22,22 +22,22 @@ earned.
 - Next.js 15 / React 19.
 - Two engines: native Stockfish (server, `child_process`) for batch game
   analysis; WASM Stockfish (browser) for the `/board` explorer.
-- Data persisted as JSON files under `./data`.
+- Data persisted in Postgres via Drizzle.
 - Chess.com public API for game history (no key required).
 - All API routes validate/sanitize input; cross-origin writes are CSRF-blocked.
 
-## Phase 1 — Persistence + friendlier user selection _(in progress)_
+## Phase 1 — Persistence + friendlier user selection _(nearly done)_
 
 - [x] In-app Chess.com username picker (remembered in `localStorage`), replacing
       the `.env.local` / `?username=` mechanism.
 - [x] API input validation + sanitization; CSRF middleware on mutations.
-- [ ] Move JSON storage → a database. Leaning **Postgres + Drizzle**.
-- [ ] Schema designed multi-user from day one: a `users` table and a `user_id`
-      FK on every data table, even with a single user today.
-- [ ] Replace `lib/coach/storage.ts` with a DB data-access layer (same function
-      shapes, minimal route churn).
-- [ ] Replace the `globalThis` progress singleton with a per-job progress row
-      (it breaks the moment two analyses run at once).
+- [x] Postgres + Drizzle: schema, migration, and a data-access layer
+      (`lib/db/queries.ts`) replacing `lib/coach/storage.ts`.
+- [x] Multi-user-ready schema: a `users` table and a `user_id` FK on every
+      per-user table; `game_analyses` is a shared cache.
+- [x] Existing `./data` JSON migrated into Postgres (`scripts/import-json.mjs`).
+- [ ] Replace the `globalThis` progress singleton with the per-user
+      `report_progress` row (table exists, not yet wired).
 
 ## Phase 2 — Accounts & auth
 
@@ -71,7 +71,7 @@ Hosting is gated by the native-Stockfish constraint:
 
 ## Open decisions
 
-- **DB + query layer:** leaning Postgres + Drizzle (hosted free tier, or
-  self-hosted). Confirm before Phase 1 build starts.
+- **DB + query layer:** resolved — **Postgres + Drizzle** (local Docker or
+  Homebrew for dev; a hosted or self-hosted instance later).
 - **Engine strategy:** keep native Stockfish + a persistent-server deploy
   (Path B); the client-WASM engine stays a fallback for a serverless future.
