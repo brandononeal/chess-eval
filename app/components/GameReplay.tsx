@@ -184,7 +184,6 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
           <div className="p-1.5 sm:w-[55%]">
             <ChessBoard
               fen={fen}
-              onMove={() => {}}
               interactive={false}
               flipped={game.userColor === "b"}
               arrows={arrows}

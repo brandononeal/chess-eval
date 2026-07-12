@@ -191,15 +191,12 @@ export function dailyActivity(
   return [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
-/**
- * Game counts per local day for the heatmap — raw archive fields only,
- * no PGN parsing or analysis.
- */
-export async function fetchDailyActivity(
+/** All raw archive games in range, filtered on the cheap fields only. */
+async function fetchRawSince(
   username: string,
   fromEpoch: number,
   timeClass = "all",
-): Promise<DayActivity[]> {
+): Promise<ApiGame[]> {
   const archives = await fetchArchiveList(username);
   const fromMonth = monthKey(new Date(fromEpoch * 1000));
   const wanted = archives.filter(
@@ -211,13 +208,25 @@ export async function fetchDailyActivity(
     raw.push(...(await fetchMonth(url)));
   }
 
+  return raw.filter(
+    (g) =>
+      g.end_time >= fromEpoch &&
+      g.rules === "chess" &&
+      (timeClass === "all" || g.time_class === timeClass),
+  );
+}
+
+/**
+ * Game counts per local day for the heatmap — raw archive fields only,
+ * no PGN parsing or analysis.
+ */
+export async function fetchDailyActivity(
+  username: string,
+  fromEpoch: number,
+  timeClass = "all",
+): Promise<DayActivity[]> {
   return dailyActivity(
-    raw.filter(
-      (g) =>
-        g.end_time >= fromEpoch &&
-        g.rules === "chess" &&
-        (timeClass === "all" || g.time_class === timeClass),
-    ),
+    await fetchRawSince(username, fromEpoch, timeClass),
     username,
   );
 }
@@ -233,30 +242,10 @@ export async function fetchGamesSince(
   fromEpoch: number,
   opts: { timeClass?: string; limit?: number } = {},
 ): Promise<FetchGamesResult> {
-  const archives = await fetchArchiveList(username);
-
-  const fromMonth = monthKey(new Date(fromEpoch * 1000));
-  const wanted = archives.filter((url) => {
-    const key = url.split("/games/")[1];
-    return key >= fromMonth;
-  });
-
-  const raw: ApiGame[] = [];
-  for (const url of wanted) {
-    raw.push(...(await fetchMonth(url)));
-  }
-
   // Filter and cap on the cheap raw fields BEFORE the expensive PGN parse.
-  const inRange = raw
-    .filter(
-      (game) =>
-        game.end_time >= fromEpoch &&
-        game.rules === "chess" &&
-        (!opts.timeClass ||
-          opts.timeClass === "all" ||
-          game.time_class === opts.timeClass),
-    )
-    .sort((a, b) => b.end_time - a.end_time);
+  const inRange = (
+    await fetchRawSince(username, fromEpoch, opts.timeClass ?? "all")
+  ).sort((a, b) => b.end_time - a.end_time);
 
   const toParse = opts.limit ? inRange.slice(0, opts.limit) : inRange;
   const games = toParse

@@ -579,36 +579,26 @@ export default function Coach() {
                             </td>
                           ))}
                         </tr>
-                        <tr>
-                          <td className="pr-3 font-sans text-ink-faint">
-                            Games
-                          </td>
-                          {report.daily.map((d) => (
-                            <td key={d.date} className="pr-3 text-right">
-                              {d.games}
+                        {(
+                          [
+                            ["Games", (d) => d.games],
+                            ["ACPL", (d) => d.acpl],
+                            ["Blunders", (d) => d.blunders],
+                          ] as Array<
+                            [string, (d: (typeof report.daily)[number]) => number]
+                          >
+                        ).map(([label, value]) => (
+                          <tr key={label}>
+                            <td className="pr-3 font-sans text-ink-faint">
+                              {label}
                             </td>
-                          ))}
-                        </tr>
-                        <tr>
-                          <td className="pr-3 font-sans text-ink-faint">
-                            ACPL
-                          </td>
-                          {report.daily.map((d) => (
-                            <td key={d.date} className="pr-3 text-right">
-                              {d.acpl}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr>
-                          <td className="pr-3 font-sans text-ink-faint">
-                            Blunders
-                          </td>
-                          {report.daily.map((d) => (
-                            <td key={d.date} className="pr-3 text-right">
-                              {d.blunders}
-                            </td>
-                          ))}
-                        </tr>
+                            {report.daily.map((d) => (
+                              <td key={d.date} className="pr-3 text-right">
+                                {value(d)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                     </div>

@@ -18,12 +18,8 @@ function scoreToPercentage(score: Score): number {
 
 function scoreToLabel(score: Score): string {
   if (score.type === "mate") {
-    const v = score.value;
-    const absValue = Math.abs(v);
-    if (absValue >= 100) return "✓";
-    if (v > 0) return `M${v}`;
-    if (v < 0) return `M${absValue}`;
-    return "0.00";
+    const absValue = Math.abs(score.value);
+    return absValue >= 100 ? "✓" : `M${absValue}`;
   }
   const pawns = Math.abs(score.value / 100);
   if (pawns === 0) return "=";
@@ -32,11 +28,7 @@ function scoreToLabel(score: Score): string {
 
 export function EvaluationBar({ score, flipped }: EvaluationBarProps) {
   const percentage = score ? scoreToPercentage(score) : 50;
-  const isWhiteAdvantage = score
-    ? score.type === "mate"
-      ? score.value >= 0
-      : score.value >= 0
-    : true;
+  const isWhiteAdvantage = score ? score.value >= 0 : true;
 
   const label = score ? scoreToLabel(score) : "0.0";
 

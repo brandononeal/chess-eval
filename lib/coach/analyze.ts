@@ -63,20 +63,33 @@ export function phaseFor(ply: number, fen: string): GamePhase {
   return "middlegame";
 }
 
-function emptyPhaseTallies(): Record<GamePhase, BucketTally> {
-  return {
-    opening: { moves: 0, blunders: 0, mistakes: 0 },
-    middlegame: { moves: 0, blunders: 0, mistakes: 0 },
-    endgame: { moves: 0, blunders: 0, mistakes: 0 },
-  };
+const PHASES = ["opening", "middlegame", "endgame"] as const;
+const CLOCK_BUCKETS = ["over30", "s10to30", "under10"] as const;
+
+function emptyTallies<K extends string>(
+  keys: readonly K[],
+): Record<K, BucketTally> {
+  return Object.fromEntries(
+    keys.map((k) => [k, { moves: 0, blunders: 0, mistakes: 0 }]),
+  ) as Record<K, BucketTally>;
 }
 
-function emptyBuckets(): Record<ClockBucket, BucketTally> {
-  return {
-    over30: { moves: 0, blunders: 0, mistakes: 0 },
-    s10to30: { moves: 0, blunders: 0, mistakes: 0 },
-    under10: { moves: 0, blunders: 0, mistakes: 0 },
-  };
+function tallyMove(t: BucketTally, severity: IssueSeverity | null): void {
+  t.moves++;
+  if (severity === "blunder") t.blunders++;
+  else if (severity === "mistake") t.mistakes++;
+}
+
+function addTallies<K extends string>(
+  dst: Record<K, BucketTally>,
+  src: Record<K, BucketTally>,
+  keys: readonly K[],
+): void {
+  for (const key of keys) {
+    dst[key].moves += src[key].moves;
+    dst[key].blunders += src[key].blunders;
+    dst[key].mistakes += src[key].mistakes;
+  }
 }
 
 /**
@@ -110,8 +123,8 @@ export async function analyzeGame(
   }
 
   const issues: MoveIssue[] = [];
-  const clockBuckets = game.clocks ? emptyBuckets() : undefined;
-  const phaseTallies = emptyPhaseTallies();
+  const clockBuckets = game.clocks ? emptyTallies(CLOCK_BUCKETS) : undefined;
+  const phaseTallies = emptyTallies(PHASES);
   let totalLoss = 0;
   let userMoveCount = 0;
 
@@ -133,16 +146,9 @@ export async function analyzeGame(
     const severity = severityFor(loss);
 
     if (clockBuckets && clockSeconds !== undefined) {
-      const bucket = clockBuckets[bucketFor(clockSeconds)];
-      bucket.moves++;
-      if (severity === "blunder") bucket.blunders++;
-      else if (severity === "mistake") bucket.mistakes++;
+      tallyMove(clockBuckets[bucketFor(clockSeconds)], severity);
     }
-
-    const phaseTally = phaseTallies[phase];
-    phaseTally.moves++;
-    if (severity === "blunder") phaseTally.blunders++;
-    else if (severity === "mistake") phaseTally.mistakes++;
+    tallyMove(phaseTallies[phase], severity);
 
     if (!severity) continue;
 
@@ -199,19 +205,15 @@ const MIN_PHASE_MOVES = 50;
  * Recommend the specialization for the phase with the worst error rate.
  */
 export function buildPhaseSummary(analyses: GameAnalysis[]): PhaseSummary {
-  const tallies = emptyPhaseTallies();
+  const tallies = emptyTallies(PHASES);
   for (const a of analyses) {
     if (!a.phaseTallies) continue; // tolerate pre-v4 cache entries
-    for (const key of Object.keys(tallies) as GamePhase[]) {
-      tallies[key].moves += a.phaseTallies[key].moves;
-      tallies[key].blunders += a.phaseTallies[key].blunders;
-      tallies[key].mistakes += a.phaseTallies[key].mistakes;
-    }
+    addTallies(tallies, a.phaseTallies, PHASES);
   }
 
-  const rated = (Object.keys(tallies) as GamePhase[])
-    .filter((p) => tallies[p].moves >= MIN_PHASE_MOVES)
-    .sort((a, b) => errorRate(tallies[b]) - errorRate(tallies[a]));
+  const rated = PHASES.filter((p) => tallies[p].moves >= MIN_PHASE_MOVES).sort(
+    (a, b) => errorRate(tallies[b]) - errorRate(tallies[a]),
+  );
 
   const worst = rated[0];
   if (!worst || errorRate(tallies[worst]) === 0) {
@@ -277,7 +279,7 @@ function buildDrills(
 }
 
 function buildTimePressure(analyses: GameAnalysis[]): TimePressureSummary {
-  const buckets = emptyBuckets();
+  const buckets = emptyTallies(CLOCK_BUCKETS);
   let hasClockData = false;
   let lostOnTime = 0;
   let lostOnTimeWhileWinning = 0;
@@ -287,11 +289,7 @@ function buildTimePressure(analyses: GameAnalysis[]): TimePressureSummary {
     if (a.lostOnTimeWhileWinning) lostOnTimeWhileWinning++;
     if (!a.clockBuckets) continue;
     hasClockData = true;
-    for (const key of Object.keys(buckets) as ClockBucket[]) {
-      buckets[key].moves += a.clockBuckets[key].moves;
-      buckets[key].blunders += a.clockBuckets[key].blunders;
-      buckets[key].mistakes += a.clockBuckets[key].mistakes;
-    }
+    addTallies(buckets, a.clockBuckets, CLOCK_BUCKETS);
   }
 
   return { buckets, lostOnTime, lostOnTimeWhileWinning, hasClockData };

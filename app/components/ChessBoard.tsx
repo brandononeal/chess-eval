@@ -14,7 +14,7 @@ export interface BoardArrow {
 
 interface ChessBoardProps {
   fen: string;
-  onMove: (fen: string) => void;
+  onMove?: (fen: string) => void;
   flipped?: boolean;
   /** When false, pieces can't be moved (replay/scrub mode). */
   interactive?: boolean;
@@ -45,7 +45,7 @@ export function ChessBoard({
     if (!interactive || !targetSquare) return false;
     const newFen = makeMove(fen, sourceSquare, targetSquare);
     if (newFen) {
-      onMove(newFen);
+      onMove?.(newFen);
       setSelectedSquare(null);
       return true;
     }
@@ -57,7 +57,7 @@ export function ChessBoard({
     if (selectedSquare) {
       if (selectedSquare !== square) {
         const newFen = makeMove(fen, selectedSquare, square);
-        if (newFen) onMove(newFen);
+        if (newFen) onMove?.(newFen);
       }
       setSelectedSquare(null);
     } else {
