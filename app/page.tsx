@@ -27,7 +27,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ActivityHeatmap } from "./components/ActivityHeatmap";
-import { DrillCard } from "./components/DrillCard";
+import { PuzzleTrainer } from "./components/PuzzleTrainer";
 import { GameReplay } from "./components/GameReplay";
 import { Sparkline } from "./components/Sparkline";
 
@@ -563,16 +563,11 @@ export default function Coach() {
                 No blunders big enough to drill — nice week.
               </p>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2">
-                {report.drills.map((drill, i) => (
-                  <DrillCard
-                    key={drill.id}
-                    drill={drill}
-                    index={i}
-                    username={username}
-                  />
-                ))}
-              </div>
+              <PuzzleTrainer
+                key={report.drills.map((d) => d.id).join(",")}
+                drills={report.drills}
+                username={username}
+              />
             )}
           </Section>
 
