@@ -3,7 +3,6 @@ import { errorRate, scoreOf, winRate } from "./ui-utils";
 
 export interface WeekGrade {
   letter: string;
-  gpa: number;
   note: string;
 }
 
@@ -191,7 +190,6 @@ export function computeGrade(report: WeeklyReport): WeekGrade | null {
 
   return {
     letter: gpa > 4.0 ? "A+" : letterFor(gpa),
-    gpa: Math.round(gpa * 10) / 10,
     note: coachNote(report, avgAcpl),
   };
 }

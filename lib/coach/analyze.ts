@@ -63,7 +63,7 @@ export function phaseFor(ply: number, fen: string): GamePhase {
   return "middlegame";
 }
 
-export function emptyPhaseTallies(): Record<GamePhase, BucketTally> {
+function emptyPhaseTallies(): Record<GamePhase, BucketTally> {
   return {
     opening: { moves: 0, blunders: 0, mistakes: 0 },
     middlegame: { moves: 0, blunders: 0, mistakes: 0 },
@@ -71,7 +71,7 @@ export function emptyPhaseTallies(): Record<GamePhase, BucketTally> {
   };
 }
 
-export function emptyBuckets(): Record<ClockBucket, BucketTally> {
+function emptyBuckets(): Record<ClockBucket, BucketTally> {
   return {
     over30: { moves: 0, blunders: 0, mistakes: 0 },
     s10to30: { moves: 0, blunders: 0, mistakes: 0 },
@@ -215,13 +215,12 @@ export function buildPhaseSummary(analyses: GameAnalysis[]): PhaseSummary {
 
   const worst = rated[0];
   if (!worst || errorRate(tallies[worst]) === 0) {
-    return { tallies, recommendation: null };
+    return { recommendation: null };
   }
 
   const rate = (p: GamePhase) => `${(errorRate(tallies[p]) * 100).toFixed(1)}%`;
   const best = rated[rated.length - 1];
   return {
-    tallies,
     recommendation: {
       focus: PHASE_TO_FOCUS[worst],
       reason: `Your ${worst} error rate is ${rate(worst)} (vs ${rate(best)} in the ${best}) — the weakest phase across ${tallies[worst].moves} ${worst} moves.`,
@@ -402,18 +401,12 @@ function buildThirds(
     .map(([url]) => url);
 
   const sessions = studyLog.filter((e) => inWindow(e.t));
-  const studyByFocus: Record<string, number> = {};
-  for (const e of sessions) {
-    studyByFocus[e.focus] = (studyByFocus[e.focus] ?? 0) + e.minutes;
-  }
 
   return {
     drillAttempts: touched.reduce((n, r) => n + r.fails + (r.passed ? 1 : 0), 0),
-    drillPasses: touched.filter((r) => r.passed).length,
     analyzedUrls,
     studySessions: sessions.length,
     studyMinutes: sessions.reduce((n, e) => n + e.minutes, 0),
-    studyByFocus,
   };
 }
 

@@ -1,7 +1,6 @@
 export type GameResult = "win" | "loss" | "draw";
 
 export const TIME_CLASSES = ["bullet", "blitz", "rapid", "daily"] as const;
-export type TimeClass = (typeof TIME_CLASSES)[number];
 
 export interface CoachGame {
   url: string;
@@ -67,7 +66,6 @@ export const STUDY_FOCI: StudyFocus[] = [
 ];
 
 export interface PhaseSummary {
-  tallies: Record<GamePhase, BucketTally>;
   recommendation: { focus: StudyFocus; reason: string } | null;
 }
 
@@ -80,11 +78,9 @@ export interface StudyLogEntry {
 /** Activity per third of the one-third rule, within the report window. */
 export interface ThirdsActivity {
   drillAttempts: number;
-  drillPasses: number;
   analyzedUrls: string[];
   studySessions: number;
   studyMinutes: number;
-  studyByFocus: Record<string, number>;
 }
 
 export interface RepertoireCheck {

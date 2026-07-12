@@ -5,7 +5,7 @@ import type { DrillRecord, GameAnalysis, StudyLogEntry } from "./types";
 const DATA_DIR = path.join(process.cwd(), "data");
 
 // Bump when the shape of cached GameAnalysis changes.
-export const CACHE_VERSION = 4;
+const CACHE_VERSION = 4;
 
 export type AnalysisCache = Record<string, GameAnalysis>;
 export type DrillHistory = Record<string, DrillRecord>;

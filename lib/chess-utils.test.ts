@@ -1,12 +1,8 @@
 import {
-  getLegalMoves,
   getMaterialBalance,
-  getMaterialCounts,
-  getMoveInSAN,
   getTurn,
   isCheckmate,
   isDraw,
-  isLegalMove,
   makeMove,
   STARTING_FEN,
 } from "@/lib/chess-utils";
@@ -17,28 +13,6 @@ describe("chess-utils", () => {
       expect(STARTING_FEN).toBe(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
       );
-    });
-  });
-
-  describe("isLegalMove", () => {
-    it("accepts a legal pawn move from the starting position", () => {
-      expect(isLegalMove(STARTING_FEN, "e2", "e4")).toBe(true);
-    });
-
-    it("accepts a legal knight move", () => {
-      expect(isLegalMove(STARTING_FEN, "g1", "f3")).toBe(true);
-    });
-
-    it("rejects an illegal pawn move", () => {
-      expect(isLegalMove(STARTING_FEN, "e2", "e5")).toBe(false);
-    });
-
-    it("rejects moving the wrong color", () => {
-      expect(isLegalMove(STARTING_FEN, "e7", "e5")).toBe(false);
-    });
-
-    it("rejects moving to an occupied friendly square", () => {
-      expect(isLegalMove(STARTING_FEN, "a1", "a2")).toBe(false);
     });
   });
 
@@ -64,34 +38,6 @@ describe("chess-utils", () => {
     });
   });
 
-  describe("getLegalMoves", () => {
-    it("returns legal target squares from the starting position", () => {
-      const moves = getLegalMoves(STARTING_FEN);
-      expect(moves.length).toBe(20);
-    });
-
-    it("includes expected squares", () => {
-      const moves = getLegalMoves(STARTING_FEN);
-      expect(moves).toContain("e4");
-      expect(moves).toContain("e3");
-      expect(moves).toContain("f3");
-    });
-  });
-
-  describe("getMoveInSAN", () => {
-    it("returns SAN for a pawn move", () => {
-      expect(getMoveInSAN(STARTING_FEN, "e2", "e4")).toBe("e4");
-    });
-
-    it("returns SAN for a knight move", () => {
-      expect(getMoveInSAN(STARTING_FEN, "g1", "f3")).toBe("Nf3");
-    });
-
-    it("returns empty string for an illegal move", () => {
-      expect(getMoveInSAN(STARTING_FEN, "e2", "e5")).toBe("");
-    });
-  });
-
   describe("getMaterialBalance", () => {
     it("returns 0 for the starting position", () => {
       expect(getMaterialBalance(STARTING_FEN)).toBe(0);
@@ -105,19 +51,6 @@ describe("chess-utils", () => {
     it("returns negative when black has extra material", () => {
       const fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1";
       expect(getMaterialBalance(fen)).toBe(-9);
-    });
-  });
-
-  describe("getMaterialCounts", () => {
-    it("returns equal counts for starting position", () => {
-      const counts = getMaterialCounts(STARTING_FEN);
-      expect(counts.white).toBe(counts.black);
-    });
-
-    it("counts material correctly", () => {
-      const counts = getMaterialCounts(STARTING_FEN);
-      expect(counts.white).toBe(39);
-      expect(counts.black).toBe(39);
     });
   });
 

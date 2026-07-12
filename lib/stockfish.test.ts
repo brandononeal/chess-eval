@@ -86,25 +86,6 @@ describe("StockfishEngine", () => {
     engine.init(3);
   });
 
-  it("delivers bestMove via onBestMove callback", (done) => {
-    const engine = new StockfishEngine();
-
-    engine.onReady(() => {
-      engine.analyze(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        10,
-      );
-    });
-
-    engine.onBestMove((move) => {
-      expect(move).toBe("e2e4");
-      engine.destroy();
-      done();
-    });
-
-    engine.init(3);
-  });
-
   it("inverts score when black to move", (done) => {
     const engine = new StockfishEngine();
     let called = false;

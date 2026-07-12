@@ -10,14 +10,7 @@ export interface PVLine {
   pv: string[];
 }
 
-export interface AnalysisResult {
-  lines: PVLine[];
-  bestMove: string;
-  currentDepth: number;
-}
-
 type InfoCallback = (lines: PVLine[], depth: number) => void;
-type BestMoveCallback = (move: string) => void;
 type ReadyCallback = () => void;
 type ErrorCallback = (error: string) => void;
 
@@ -28,7 +21,6 @@ export class StockfishEngine {
   private ready = false;
   private initializing = false;
   private lines: Map<number, PVLine> = new Map();
-  private currentDepth = 0;
   private blackToMove = false;
   private searchActive = false;
   private awaitingReadyForAnalyze = false;
@@ -36,15 +28,11 @@ export class StockfishEngine {
   private pendingDepth: number | null = null;
 
   private onInfoCb: InfoCallback | null = null;
-  private onBestMoveCb: BestMoveCallback | null = null;
   private onReadyCb: ReadyCallback | null = null;
   private onErrorCb: ErrorCallback | null = null;
 
   onInfo(cb: InfoCallback) {
     this.onInfoCb = cb;
-  }
-  onBestMove(cb: BestMoveCallback) {
-    this.onBestMoveCb = cb;
   }
   onReady(cb: ReadyCallback) {
     this.onReadyCb = cb;
@@ -110,10 +98,7 @@ export class StockfishEngine {
     } else if (line.startsWith("info depth")) {
       this.parseInfo(line);
     } else if (line.startsWith("bestmove")) {
-      const parts = line.split(" ");
-      const move = parts[1] ?? "";
       this.searchActive = false;
-      this.onBestMoveCb?.(move);
     }
   }
 
@@ -159,7 +144,6 @@ export class StockfishEngine {
 
     const pvLine: PVLine = { multipv, depth, score, pv };
     this.lines.set(multipv, pvLine);
-    this.currentDepth = depth;
 
     const sortedLines = Array.from(this.lines.values()).sort(
       (a, b) => a.multipv - b.multipv,
@@ -179,16 +163,10 @@ export class StockfishEngine {
 
   private startSearch(fen: string, depth: number): void {
     this.lines.clear();
-    this.currentDepth = 0;
     this.blackToMove = fen.split(" ")[1] === "b";
     this.searchActive = true;
     this.send(`position fen ${fen}`);
     this.send(`go depth ${depth}`);
-  }
-
-  stop(): void {
-    if (!this.worker) return;
-    this.send("stop");
   }
 
   destroy(): void {

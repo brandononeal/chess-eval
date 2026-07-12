@@ -18,7 +18,7 @@ const DAY_LABELS: Array<[number, string]> = [
 ];
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
 
-export function heatLevel(games: number): number {
+function heatLevel(games: number): number {
   if (games === 0) return 0;
   if (games <= 4) return 1;
   if (games <= 9) return 2;
