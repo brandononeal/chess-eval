@@ -8,6 +8,7 @@ import { ChessBoard } from "./ChessBoard";
 interface DrillCardProps {
   drill: Drill;
   index: number;
+  username: string | null;
 }
 
 type Status = "trying" | "checking" | "correct" | "wrong" | "revealed";
@@ -23,15 +24,19 @@ const STATE_STYLES: Record<Status, string> = {
   revealed: "border-brass",
 };
 
-function reportResult(drill: Drill, passed: boolean): void {
+function reportResult(
+  drill: Drill,
+  passed: boolean,
+  username: string | null,
+): void {
   fetch("/api/coach/drill-result", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ drill, passed }),
+    body: JSON.stringify({ drill, passed, username: username ?? undefined }),
   }).catch(() => {});
 }
 
-export function DrillCard({ drill, index }: DrillCardProps) {
+export function DrillCard({ drill, index, username }: DrillCardProps) {
   const [fen, setFen] = useState(drill.fen);
   const [status, setStatus] = useState<Status>("trying");
   const [attempt, setAttempt] = useState("");
@@ -46,7 +51,7 @@ export function DrillCard({ drill, index }: DrillCardProps) {
       setFen(newFen);
       setAcceptedAlt(false);
       setStatus("correct");
-      reportResult(drill, true);
+      reportResult(drill, true, username);
       return;
     }
 
@@ -63,14 +68,14 @@ export function DrillCard({ drill, index }: DrillCardProps) {
         setFen(newFen);
         setAcceptedAlt(true);
         setStatus("correct");
-        reportResult(drill, true);
+        reportResult(drill, true, username);
         return;
       }
     } catch {
       // fall through to wrong
     }
     setStatus("wrong");
-    reportResult(drill, false);
+    reportResult(drill, false, username);
   };
 
   const reset = () => {
@@ -81,7 +86,7 @@ export function DrillCard({ drill, index }: DrillCardProps) {
 
   const reveal = () => {
     setStatus("revealed");
-    reportResult(drill, false);
+    reportResult(drill, false, username);
   };
 
   return (

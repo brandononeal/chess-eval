@@ -19,6 +19,7 @@ interface GameReplayProps {
   analysis: GameAnalysis;
   initialPly?: number;
   onClose: () => void;
+  username: string | null;
 }
 
 interface ReplayMove {
@@ -38,7 +39,12 @@ function moveSquares(fen: string, san: string): BoardArrow | null {
   }
 }
 
-export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
+export function GameReplay({
+  analysis,
+  initialPly,
+  onClose,
+  username,
+}: GameReplayProps) {
   const { game, issues, evals } = analysis;
   const [ply, setPly] = useState(
     Math.max(0, Math.min(initialPly ?? 0, game.sans.length)),
@@ -126,10 +132,10 @@ export function GameReplay({ analysis, initialPly, onClose }: GameReplayProps) {
       fetch("/api/coach/analyzed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: game.url }),
+        body: JSON.stringify({ url: game.url, username: username ?? undefined }),
       }).catch(() => {});
     }
-  }, [ply, moves.length, game.url]);
+  }, [ply, moves.length, game.url, username]);
 
   const currentEval = evals[ply] ?? 0;
   const controls: Array<[string, () => void]> = [

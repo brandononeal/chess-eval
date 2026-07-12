@@ -2,16 +2,16 @@ import { analyzeGame, buildReport } from "@/lib/coach/analyze";
 import { fetchGamesSince } from "@/lib/coach/chesscom";
 import { NativeEngine } from "@/lib/coach/engine";
 import { setProgress } from "@/lib/coach/progress";
+import { type GameAnalysis } from "@/lib/coach/types";
+import { clampInt, normalizeTimeClass } from "@/lib/coach/validation";
 import {
-  cacheKey,
-  loadAnalysisCache,
+  getOrCreateUserId,
+  loadAnalyses,
   loadAnalyzedGames,
   loadDrillHistory,
   loadStudyLog,
-  saveAnalysisCache,
-} from "@/lib/coach/storage";
-import { type GameAnalysis } from "@/lib/coach/types";
-import { clampInt, normalizeTimeClass } from "@/lib/coach/validation";
+  saveAnalysis,
+} from "@/lib/db/queries";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -46,14 +46,16 @@ export async function GET(req: NextRequest) {
       { timeClass, limit: MAX_GAMES },
     );
     const skippedGames = totalInRange - toAnalyze.length;
+    const userId = await getOrCreateUserId(username);
 
-    const cache = await loadAnalysisCache();
-    if (refresh) {
-      // Invalidate only the games this request covers — never the whole file.
-      for (const g of toAnalyze) delete cache[cacheKey(g.url, depth)];
-    }
-    const analyses: GameAnalysis[] = [];
-    const missing = toAnalyze.filter((g) => !cache[cacheKey(g.url, depth)]);
+    // Shared cache: pull what's already analyzed, run Stockfish on the rest.
+    const cached = refresh
+      ? {}
+      : await loadAnalyses(
+          toAnalyze.map((g) => g.url),
+          depth,
+        );
+    const missing = toAnalyze.filter((g) => !cached[g.url]);
 
     if (missing.length > 0) {
       setProgress({ phase: "analyzing", current: 0, total: missing.length });
@@ -61,29 +63,21 @@ export async function GET(req: NextRequest) {
       await engine.init();
       try {
         for (let i = 0; i < missing.length; i++) {
-          cache[cacheKey(missing[i].url, depth)] = await analyzeGame(
-            missing[i],
-            engine,
-            depth,
-          );
+          const analysis = await analyzeGame(missing[i], engine, depth);
+          await saveAnalysis(missing[i].url, depth, analysis);
+          cached[missing[i].url] = analysis;
           setProgress({ current: i + 1 });
         }
       } finally {
         engine.quit();
       }
-      // Merge with what's on disk so a concurrent request's entries survive.
-      const disk = await loadAnalysisCache();
-      await saveAnalysisCache({ ...disk, ...cache });
     }
 
-    for (const game of toAnalyze) {
-      analyses.push(cache[cacheKey(game.url, depth)]);
-    }
-
+    const analyses: GameAnalysis[] = toAnalyze.map((g) => cached[g.url]);
     const [drillHistory, analyzedGames, studyLog] = await Promise.all([
-      loadDrillHistory(),
-      loadAnalyzedGames(),
-      loadStudyLog(),
+      loadDrillHistory(userId),
+      loadAnalyzedGames(userId),
+      loadStudyLog(userId),
     ]);
     setProgress({ phase: "done" });
     const report = buildReport(

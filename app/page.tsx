@@ -332,7 +332,7 @@ export default function Coach() {
     await fetch("/api/coach/study-log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ focus, minutes }),
+      body: JSON.stringify({ focus, minutes, username: username ?? undefined }),
     }).catch(() => {});
     setRefreshNonce((n) => n + 1);
   };
@@ -564,7 +564,12 @@ export default function Coach() {
             ) : (
               <div className="grid gap-6 sm:grid-cols-2">
                 {report.drills.map((drill, i) => (
-                  <DrillCard key={drill.id} drill={drill} index={i} />
+                  <DrillCard
+                    key={drill.id}
+                    drill={drill}
+                    index={i}
+                    username={username}
+                  />
                 ))}
               </div>
             )}
@@ -791,6 +796,7 @@ export default function Coach() {
           key={`${replay.analysis.game.url}#${replay.initialPly ?? 0}`}
           analysis={replay.analysis}
           initialPly={replay.initialPly}
+          username={username}
           onClose={() => {
             setReplay(null);
             // Refresh so a newly-analyzed game gets its ✓ immediately.
