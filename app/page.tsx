@@ -299,6 +299,34 @@ export default function Coach() {
   const [replay, setReplay] = useState<ReplayTarget | null>(null);
   const [progressText, setProgressText] = useState("");
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [username, setUsername] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
+
+  // localStorage isn't available during SSR, so seed after mount.
+  useEffect(() => {
+    const saved = localStorage.getItem("coach:username");
+    if (saved) {
+      setUsername(saved);
+      setUsernameInput(saved);
+    }
+  }, []);
+
+  // When no username is chosen, show the server's default in the field.
+  useEffect(() => {
+    if (username === null && report?.username) setUsernameInput(report.username);
+  }, [report?.username, username]);
+
+  const submitUsername = (e: React.FormEvent) => {
+    e.preventDefault();
+    const next = usernameInput.trim();
+    if (next) {
+      localStorage.setItem("coach:username", next);
+      setUsername(next);
+    } else {
+      localStorage.removeItem("coach:username");
+      setUsername(null);
+    }
+  };
 
   const logStudy = async (focus: StudyFocus, minutes: number) => {
     await fetch("/api/coach/study-log", {
@@ -314,7 +342,9 @@ export default function Coach() {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/coach/report?days=${days}&tc=${tc}`, {
+    const qs = new URLSearchParams({ days: String(days), tc });
+    if (username) qs.set("username", username);
+    fetch(`/api/coach/report?${qs.toString()}`, {
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -332,7 +362,7 @@ export default function Coach() {
       });
 
     return () => controller.abort();
-  }, [days, tc, refreshNonce]);
+  }, [days, tc, refreshNonce, username]);
 
   useEffect(() => {
     if (!loading) {
@@ -405,6 +435,26 @@ export default function Coach() {
             </Link>
           </div>
         </div>
+
+        <form onSubmit={submitUsername} className="mt-3 flex items-center gap-2">
+          <span className="kicker">Player</span>
+          <input
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+            placeholder={report?.username ?? "chess.com username"}
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
+            aria-label="Chess.com username"
+            className="w-48 rounded-lg border border-line bg-transparent px-2.5 py-1 font-mono text-xs outline-none transition-colors focus:border-brass"
+          />
+          <button
+            type="submit"
+            className="rounded-lg border border-line px-2.5 py-1 text-xs hover:bg-raised"
+          >
+            Load
+          </button>
+        </form>
 
         {grade && !loading && (
           <div className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-2">
@@ -554,7 +604,7 @@ export default function Coach() {
               <div className="kicker mb-2">
                 Daily games{tc !== "all" ? ` · ${tc}` : ""}
               </div>
-              <ActivityHeatmap timeClass={tc} />
+              <ActivityHeatmap timeClass={tc} username={username} />
             </div>
             {report.ratingSeries.length >= 2 && (
               <div className="card flex flex-wrap gap-10 px-6 py-4">

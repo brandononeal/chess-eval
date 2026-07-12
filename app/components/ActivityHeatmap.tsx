@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 interface ActivityHeatmapProps {
   timeClass: string;
+  username: string | null;
 }
 
 const CELL = 10;
@@ -53,7 +54,7 @@ function buildGrid(days: DayActivity[], fromTime: number): Cell[] {
   }
 }
 
-export function ActivityHeatmap({ timeClass }: ActivityHeatmapProps) {
+export function ActivityHeatmap({ timeClass, username }: ActivityHeatmapProps) {
   const [days, setDays] = useState<DayActivity[] | null>(null);
   const [fromTime, setFromTime] = useState(0);
   const [error, setError] = useState(false);
@@ -62,7 +63,9 @@ export function ActivityHeatmap({ timeClass }: ActivityHeatmapProps) {
   useEffect(() => {
     const controller = new AbortController();
     setDays(null);
-    fetch(`/api/coach/activity?days=365&tc=${timeClass}`, {
+    const qs = new URLSearchParams({ days: "365", tc: timeClass });
+    if (username) qs.set("username", username);
+    fetch(`/api/coach/activity?${qs.toString()}`, {
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -75,7 +78,7 @@ export function ActivityHeatmap({ timeClass }: ActivityHeatmapProps) {
         if (err.name !== "AbortError") setError(true);
       });
     return () => controller.abort();
-  }, [timeClass]);
+  }, [timeClass, username]);
 
   if (error) return null;
   if (!days) {
