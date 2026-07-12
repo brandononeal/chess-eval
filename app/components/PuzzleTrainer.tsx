@@ -129,7 +129,8 @@ export function PuzzleTrainer({
     showHint && status !== "solved" && best ? [best.from] : undefined;
 
   const handleMove = async (newFen: string) => {
-    if (status !== "trying") return;
+    // "wrong" stays interactive so you can keep trying until you find it.
+    if (status !== "trying" && status !== "wrong") return;
     const san = sanBetween(drill.fen, newFen);
     setAttempt(san);
 
@@ -217,7 +218,7 @@ export function PuzzleTrainer({
         <ChessBoard
           fen={position}
           onMove={handleMove}
-          interactive={status === "trying"}
+          interactive={status === "trying" || status === "wrong"}
           flipped={drill.userColor === "b"}
           arrows={arrows}
           highlightSquares={highlight}
