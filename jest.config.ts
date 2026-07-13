@@ -18,7 +18,11 @@ const config: Config.InitialOptions = {
   globalSetup: "<rootDir>/jest.global-setup.ts",
   setupFiles: ["<rootDir>/jest.db-env.ts"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
-  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+  testPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/.claude/", // agent worktrees carry test-file copies
+  ],
 };
 
 export default config;
