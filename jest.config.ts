@@ -13,6 +13,10 @@ const config: Config.InitialOptions = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
+  // Create + migrate the test database once per run (jest.global-setup.ts),
+  // and point DATABASE_URL at it before every test file (jest.db-env.ts).
+  globalSetup: "<rootDir>/jest.global-setup.ts",
+  setupFiles: ["<rootDir>/jest.db-env.ts"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
 };
