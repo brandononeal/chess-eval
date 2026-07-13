@@ -44,4 +44,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Your Chess.com username comes from the in-app **Player** field (remembered in your browser), falling back to the `CHESS_USERNAME` default in `.env.local`. Browse the database with `npm run db:studio`.
 
+## Testing
+
+`npm test` runs the full suite, including DB integration tests — Jest auto-creates and migrates a dedicated `chess_eval_test` database on the same local Postgres (never your dev data; override with `TEST_DATABASE_URL`, which must name a `*_test` database).
+Run just the DB tests with `npm run test:db`.
+
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together, and [ROADMAP.md](ROADMAP.md) for what's next.
