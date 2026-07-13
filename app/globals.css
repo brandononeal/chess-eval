@@ -47,6 +47,7 @@
   --board-notation-on-dark: #d9c69e;
   --board-selected: #c9a45c;
   --board-last-move: #c9a45c4d;
+  --board-hint: #55934a59;
   --board-radius: 6px;
   --frame-inner: #453626;
   --frame-wood: #241c14;
@@ -59,8 +60,8 @@
   --telestrator-best-wash: #55934a12;
   --telestrator-played: #c24434;
   --telestrator-played-wash: #c2443412;
-  --arrow-best: #55934ad9;
-  --arrow-played: #c24434d9;
+  --arrow-best: #6cc157e6;
+  --arrow-played: #e2523fe6;
 
   --well-bg: #131009;
   --eval-line: #d8c9a8;

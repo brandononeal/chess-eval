@@ -26,7 +26,7 @@ earned.
 - Chess.com public API for game history (no key required).
 - All API routes validate/sanitize input; cross-origin writes are CSRF-blocked.
 
-## Phase 1 — Persistence + friendlier user selection _(nearly done)_
+## Phase 1 — Persistence + friendlier user selection _(complete)_
 
 - [x] In-app Chess.com username picker (remembered in `localStorage`), replacing
       the `.env.local` / `?username=` mechanism.
@@ -36,8 +36,10 @@ earned.
 - [x] Multi-user-ready schema: a `users` table and a `user_id` FK on every
       per-user table; `game_analyses` is a shared cache.
 - [x] Existing `./data` JSON migrated into Postgres (`scripts/import-json.mjs`).
-- [ ] Replace the `globalThis` progress singleton with the per-user
-      `report_progress` row (table exists, not yet wired).
+- [x] Replace the `globalThis` progress singleton with the per-user
+      `report_progress` row.
+
+Phase 1 complete.
 
 ## Phase 2 — Accounts & auth
 

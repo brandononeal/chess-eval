@@ -126,7 +126,9 @@ export function PuzzleTrainer({
       arrows.push({ ...best, color: "var(--arrow-best)" });
   }
   const highlight =
-    showHint && status !== "solved" && best ? [best.from] : undefined;
+    showHint && status !== "solved" && status !== "revealed" && best
+      ? [best.from]
+      : undefined;
 
   const handleMove = async (newFen: string) => {
     // "wrong" stays interactive so you can keep trying until you find it.
@@ -221,7 +223,7 @@ export function PuzzleTrainer({
           interactive={status === "trying" || status === "wrong"}
           flipped={drill.userColor === "b"}
           arrows={arrows}
-          highlightSquares={highlight}
+          hintSquares={highlight}
         />
       </div>
 

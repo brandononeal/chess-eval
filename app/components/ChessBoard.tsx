@@ -21,6 +21,8 @@ interface ChessBoardProps {
   arrows?: BoardArrow[];
   /** Squares to tint (e.g. last move from/to). */
   highlightSquares?: string[];
+  /** Squares the engine is pointing at (hint) — telestrator green, ringed. */
+  hintSquares?: string[];
 }
 
 export function ChessBoard({
@@ -30,6 +32,7 @@ export function ChessBoard({
   interactive = true,
   arrows,
   highlightSquares,
+  hintSquares,
 }: ChessBoardProps) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const { ref: containerRef, width: boardWidth } =
@@ -68,6 +71,12 @@ export function ChessBoard({
   const squareStyles: Record<string, React.CSSProperties> = {};
   for (const sq of highlightSquares ?? []) {
     squareStyles[sq] = { backgroundColor: "var(--board-last-move)" };
+  }
+  for (const sq of hintSquares ?? []) {
+    squareStyles[sq] = {
+      backgroundColor: "var(--board-hint)",
+      boxShadow: "inset 0 0 0 3px var(--telestrator-best)",
+    };
   }
   if (selectedSquare) {
     squareStyles[selectedSquare] = {
