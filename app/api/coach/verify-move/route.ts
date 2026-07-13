@@ -18,7 +18,14 @@ const g = globalThis as {
 // Judges a drill attempt: any move losing less than ACCEPT_LOSS_CP against
 // the engine's best line counts as correct, not just the single top move.
 export async function POST(req: NextRequest) {
-  const { fen, san } = await req.json();
+  let body: Record<string, unknown> | null;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  }
+  const fen = body?.fen;
+  const san = body?.san;
   if (!isValidFen(fen) || typeof san !== "string") {
     return NextResponse.json({ error: "fen and san required" }, { status: 400 });
   }
@@ -38,8 +45,8 @@ export async function POST(req: NextRequest) {
 
   const moverIsWhite = fen.split(" ")[1] === "w";
   const engine = new NativeEngine();
-  await engine.init();
   try {
+    await engine.init();
     g.__verifyBaselines ??= new Map();
     let best = g.__verifyBaselines.get(fen);
     if (!best) {
@@ -56,6 +63,9 @@ export async function POST(req: NextRequest) {
       lossCp,
       bestSan: uciToSan(fen, best.bestMoveUci),
     });
+  } catch (err) {
+    console.error("verify-move route failed:", err);
+    return NextResponse.json({ error: "internal error" }, { status: 500 });
   } finally {
     engine.quit();
   }

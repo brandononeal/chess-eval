@@ -25,7 +25,11 @@ export async function GET(req: NextRequest) {
     const daysOut = await fetchDailyActivity(username, fromTime, timeClass);
     return NextResponse.json({ fromTime, days: daysOut });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    // Raw error messages can leak hosts/SQL — log them, return a generic one.
+    console.error("activity route failed:", err);
+    return NextResponse.json(
+      { error: "failed to load activity" },
+      { status: 502 },
+    );
   }
 }

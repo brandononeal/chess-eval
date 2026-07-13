@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type {
   Drill,
   DrillRecord,
@@ -160,40 +160,35 @@ export async function loadDrillHistory(
   return map;
 }
 
-export async function getDrillFails(
-  userId: number,
-  drillId: string,
-): Promise<number> {
-  const rows = await db
-    .select({ fails: drillHistory.fails })
-    .from(drillHistory)
-    .where(and(eq(drillHistory.userId, userId), eq(drillHistory.drillId, drillId)))
-    .limit(1);
-  return rows[0]?.fails ?? 0;
-}
-
+/**
+ * Record a drill attempt. The fail counter increments in SQL rather than
+ * being read-modify-written by the caller, so concurrent submissions for
+ * the same drill can't lose an update.
+ */
 export async function upsertDrillRecord(
   userId: number,
-  record: DrillRecord,
+  drill: Drill,
+  passed: boolean,
+  updatedAt: number,
 ): Promise<void> {
-  const values = {
-    userId,
-    drillId: record.drill.id,
-    drill: record.drill,
-    passed: record.passed,
-    fails: record.fails,
-    updatedAt: fromEpoch(record.updatedAt),
-  };
+  const failDelta = passed ? 0 : 1;
   await db
     .insert(drillHistory)
-    .values(values)
+    .values({
+      userId,
+      drillId: drill.id,
+      drill,
+      passed,
+      fails: failDelta,
+      updatedAt: fromEpoch(updatedAt),
+    })
     .onConflictDoUpdate({
       target: [drillHistory.userId, drillHistory.drillId],
       set: {
-        drill: values.drill,
-        passed: values.passed,
-        fails: values.fails,
-        updatedAt: values.updatedAt,
+        drill,
+        passed,
+        fails: sql`${drillHistory.fails} + ${failDelta}`,
+        updatedAt: fromEpoch(updatedAt),
       },
     });
 }

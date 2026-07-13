@@ -56,7 +56,10 @@ function monthKey(date: Date): string {
 // of PGN. Stored on globalThis to survive dev-mode module reloads.
 const CURRENT_MONTH_TTL_MS = 5 * 60_000;
 const g = globalThis as {
-  __chesscomMonths?: Map<string, { at: number; games: ApiGame[] }>;
+  __chesscomMonths?: Map<
+    string,
+    { at: number; wasCurrent: boolean; games: ApiGame[] }
+  >;
   __chesscomArchives?: Map<string, { at: number; archives: string[] }>;
 };
 
@@ -75,11 +78,21 @@ async function fetchMonth(url: string): Promise<ApiGame[]> {
   g.__chesscomMonths ??= new Map();
   const isCurrentMonth = url.endsWith(monthKey(new Date()));
   const hit = g.__chesscomMonths.get(url);
-  if (hit && (!isCurrentMonth || Date.now() - hit.at < CURRENT_MONTH_TTL_MS)) {
+  // Only entries fetched after their month closed are truly immutable; a
+  // snapshot taken mid-month must be refetched once after rollover.
+  const isFinal = hit && !hit.wasCurrent;
+  if (
+    hit &&
+    (isFinal || (isCurrentMonth && Date.now() - hit.at < CURRENT_MONTH_TTL_MS))
+  ) {
     return hit.games;
   }
   const { games } = await fetchJson<{ games: ApiGame[] }>(url);
-  g.__chesscomMonths.set(url, { at: Date.now(), games });
+  g.__chesscomMonths.set(url, {
+    at: Date.now(),
+    wasCurrent: isCurrentMonth,
+    games,
+  });
   return games;
 }
 

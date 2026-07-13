@@ -63,6 +63,7 @@ export function ActivityHeatmap({ timeClass, username }: ActivityHeatmapProps) {
   useEffect(() => {
     const controller = new AbortController();
     setDays(null);
+    setError(false); // a previous failure shouldn't blank this fetch's result
     const qs = new URLSearchParams({ days: "365", tc: timeClass });
     if (username) qs.set("username", username);
     fetch(`/api/coach/activity?${qs.toString()}`, {

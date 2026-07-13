@@ -222,10 +222,12 @@ export function buildPhaseSummary(analyses: GameAnalysis[]): PhaseSummary {
 
   const rate = (p: GamePhase) => `${(errorRate(tallies[p]) * 100).toFixed(1)}%`;
   const best = rated[rated.length - 1];
+  // With a single qualifying phase there is nothing to compare against.
+  const comparison = best !== worst ? ` (vs ${rate(best)} in the ${best})` : "";
   return {
     recommendation: {
       focus: PHASE_TO_FOCUS[worst],
-      reason: `Your ${worst} error rate is ${rate(worst)} (vs ${rate(best)} in the ${best}) — the weakest phase across ${tallies[worst].moves} ${worst} moves.`,
+      reason: `Your ${worst} error rate is ${rate(worst)}${comparison} — the weakest phase across ${tallies[worst].moves} ${worst} moves.`,
     },
   };
 }
@@ -401,7 +403,9 @@ function buildThirds(
   const sessions = studyLog.filter((e) => inWindow(e.t));
 
   return {
-    drillAttempts: touched.reduce((n, r) => n + r.fails + (r.passed ? 1 : 0), 0),
+    // fails is a lifetime counter, so summing it would leak attempts from
+    // outside the window; count drills attempted in the window instead.
+    drillAttempts: touched.length,
     analyzedUrls,
     studySessions: sessions.length,
     studyMinutes: sessions.reduce((n, e) => n + e.minutes, 0),

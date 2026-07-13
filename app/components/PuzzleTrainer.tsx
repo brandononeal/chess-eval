@@ -3,7 +3,7 @@
 import type { Drill } from "@/lib/coach/types";
 import { formatEval, sanBetween } from "@/lib/coach/ui-utils";
 import { Chess } from "chess.js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChessBoard, type BoardArrow } from "./ChessBoard";
 
 type Status = "trying" | "checking" | "solved" | "wrong" | "revealed";
@@ -49,11 +49,15 @@ export function PuzzleTrainer({
   const [acceptedAlt, setAcceptedAlt] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [shake, setShake] = useState(false);
+  // Bumped on every navigation so in-flight verify-move responses for a
+  // previous puzzle are ignored instead of corrupting the new one's state.
+  const epochRef = useRef(0);
 
   const done = index >= drills.length;
   const drill = drills[index];
 
   const reset = useCallback(() => {
+    epochRef.current++;
     setStatus("trying");
     setAttempt("");
     setAcceptedAlt(false);
@@ -75,6 +79,16 @@ export function PuzzleTrainer({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't hijack arrow keys while the user is typing in a form field.
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return;
       if (e.key === "ArrowRight" && resolved) goNext();
       else if (e.key === "ArrowLeft") goPrev();
     };
@@ -144,6 +158,7 @@ export function PuzzleTrainer({
       return;
     }
 
+    const epoch = epochRef.current;
     setStatus("checking");
     try {
       const res = await fetch("/api/coach/verify-move", {
@@ -152,6 +167,7 @@ export function PuzzleTrainer({
         body: JSON.stringify({ fen: drill.fen, san }),
       });
       const verdict = await res.json();
+      if (epoch !== epochRef.current) return; // navigated away; stale response
       if (res.ok && verdict.accepted) {
         setAcceptedAlt(true);
         setStatus("solved");
@@ -162,6 +178,7 @@ export function PuzzleTrainer({
     } catch {
       // fall through to wrong
     }
+    if (epoch !== epochRef.current) return; // navigated away; stale response
     setStatus("wrong");
     setShake(true);
     setTimeout(() => setShake(false), 300);

@@ -1,6 +1,7 @@
 import {
   clampInt,
   isChessComGameUrl,
+  isChessComUsername,
   isValidFen,
   normalizeTimeClass,
   parseStudySession,
@@ -32,6 +33,23 @@ describe("isChessComGameUrl", () => {
     expect(isChessComGameUrl("https://evil.com/game/1")).toBe(false);
     expect(isChessComGameUrl(42)).toBe(false);
     expect(isChessComGameUrl(undefined)).toBe(false);
+  });
+});
+
+describe("isChessComUsername", () => {
+  it("accepts plausible Chess.com usernames", () => {
+    expect(isChessComUsername("hikaru")).toBe(true);
+    expect(isChessComUsername("Magnus_Carlsen-1")).toBe(true);
+    expect(isChessComUsername("abc")).toBe(true);
+  });
+  it("rejects out-of-bounds lengths, bad charsets, and non-strings", () => {
+    expect(isChessComUsername("ab")).toBe(false);
+    expect(isChessComUsername("a".repeat(26))).toBe(false);
+    expect(isChessComUsername("has space")).toBe(false);
+    expect(isChessComUsername("semi;colon")).toBe(false);
+    expect(isChessComUsername("")).toBe(false);
+    expect(isChessComUsername(42)).toBe(false);
+    expect(isChessComUsername(undefined)).toBe(false);
   });
 });
 
@@ -118,6 +136,10 @@ describe("parseStudySession", () => {
     expect(parseStudySession({ focus: "Openings", minutes: 241 })).toBeNull();
     expect(parseStudySession({ focus: "Openings", minutes: "15" })).toBeNull();
     expect(parseStudySession({ focus: "Openings", minutes: NaN })).toBeNull();
+  });
+
+  it("rejects fractional minutes (integer column downstream)", () => {
+    expect(parseStudySession({ focus: "Openings", minutes: 12.5 })).toBeNull();
   });
 
   it("rejects non-objects", () => {

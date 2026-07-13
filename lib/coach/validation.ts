@@ -6,6 +6,15 @@ export function isChessComGameUrl(url: unknown): url is string {
   return typeof url === "string" && url.startsWith("https://www.chess.com/");
 }
 
+/**
+ * A plausible Chess.com username (their rules: 3-25 letters, digits,
+ * underscores, hyphens). Gates getOrCreateUserId so arbitrary strings
+ * can't mint unbounded users rows.
+ */
+export function isChessComUsername(v: unknown): v is string {
+  return typeof v === "string" && /^[a-zA-Z0-9_-]{3,25}$/.test(v);
+}
+
 export function isValidFen(fen: unknown): fen is string {
   if (typeof fen !== "string") return false;
   try {
@@ -70,7 +79,7 @@ export function parseStudySession(
   if (!STUDY_FOCI.includes(focus as StudyFocus)) return null;
   if (
     typeof minutes !== "number" ||
-    !Number.isFinite(minutes) ||
+    !Number.isInteger(minutes) ||
     minutes <= 0 ||
     minutes > MAX_STUDY_MINUTES
   ) {

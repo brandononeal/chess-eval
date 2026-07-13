@@ -39,15 +39,32 @@ export function formatEval(cp: number): string {
   return `${sign}${pawns.toFixed(1)}`;
 }
 
+// en-CA formats as YYYY-MM-DD. Formatters are cached because localDateKey
+// runs in per-game/per-day loops and Intl construction is expensive.
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>();
+
 /**
  * Local calendar date key (YYYY-MM-DD) — the app's convention everywhere:
  * evening games belong to the day they were played, not the UTC day.
+ *
+ * "Local" means the given IANA `timeZone`, falling back to the process's
+ * zone when omitted — correct in the browser, but server-side callers
+ * (buildDaily, dailyActivity) key by the server's zone unless they pass the
+ * user's zone or the deployment pins TZ to match.
  */
-export function localDateKey(epochSeconds: number): string {
-  const d = new Date(epochSeconds * 1000);
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+export function localDateKey(epochSeconds: number, timeZone?: string): string {
+  const key = timeZone ?? "";
+  let fmt = dateKeyFormatters.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    dateKeyFormatters.set(key, fmt);
+  }
+  return fmt.format(new Date(epochSeconds * 1000));
 }
 
 export function formatDate(epochSeconds: number): string {

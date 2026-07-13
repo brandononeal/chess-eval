@@ -311,9 +311,12 @@ export default function Coach() {
     }
   }, []);
 
-  // When no username is chosen, show the server's default in the field.
+  // When no username is chosen, show the server's default in the field —
+  // but only if it's still untouched, so we never clobber in-progress typing.
   useEffect(() => {
-    if (username === null && report?.username) setUsernameInput(report.username);
+    if (username === null && report?.username) {
+      setUsernameInput((cur) => (cur === "" ? report.username : cur));
+    }
   }, [report?.username, username]);
 
   const submitUsername = (e: React.FormEvent) => {
@@ -365,15 +368,16 @@ export default function Coach() {
   }, [days, tc, refreshNonce, username]);
 
   useEffect(() => {
-    if (!loading) {
-      setProgressText("");
-      return;
-    }
+    // Clear stale text from the previous run whether we're starting or done.
+    setProgressText("");
+    if (!loading) return;
+    let cancelled = false;
     const qs = username ? `?username=${encodeURIComponent(username)}` : "";
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/coach/progress${qs}`);
         const p = await res.json();
+        if (cancelled) return; // late response after this run ended
         if (p.phase === "analyzing" && p.total > 0) {
           setProgressText(`Analyzing game ${p.current}/${p.total}…`);
         } else if (p.phase === "fetching") {
@@ -383,7 +387,10 @@ export default function Coach() {
         // keep last text
       }
     }, 1500);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [loading, username]);
 
   const grade = report ? computeGrade(report) : null;
