@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Mono, Libre_Franklin } from "next/font/google";
 import "./globals.css";
 
@@ -20,9 +21,18 @@ const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-mono",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Chess Coach",
   description: "Weekly chess training: play, analyze, openings, puzzles",
+  appleWebApp: {
+    capable: true,
+    title: "Chess Coach",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#161210",
 };
 
 export default function RootLayout({
