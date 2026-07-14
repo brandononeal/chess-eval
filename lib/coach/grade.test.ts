@@ -91,6 +91,53 @@ describe("computeGrade", () => {
     const grade = computeGrade(makeReport({ acpls: [65] }));
     expect(grade?.note.length).toBeGreaterThan(10);
   });
+
+  it("exposes the math behind the letter", () => {
+    const grade = computeGrade(
+      makeReport({ acpls: [70, 70], blunders: [0, 0], wins: 2 }),
+    );
+    // ACPL 70 → 2.7 base; 0 blunders/game → +0.3; 100% score → +0.3.
+    expect(grade?.breakdown).toMatchObject({
+      avgAcpl: 70,
+      acplGpa: 2.7,
+      blunderMod: 0.3,
+      scoreMod: 0.3,
+      gpa: 3.3,
+    });
+    expect(grade?.letter).toBe("B+");
+  });
+
+  it("flags a rating climb that outruns move quality", () => {
+    const report = makeReport({
+      acpls: [90, 95],
+      blunders: [2, 3],
+      wins: 2,
+    });
+    report.ratingSeries = [
+      { t: 1, rating: 700 },
+      { t: 2, rating: 758 },
+    ] as WeeklyReport["ratingSeries"];
+    report.ratingSeriesClass = "blitz";
+    const grade = computeGrade(report);
+    expect(grade?.rating?.delta).toBe(58);
+    expect(grade?.rating?.timeClass).toBe("blitz");
+    expect(grade?.rating?.note).toContain("outrunning");
+  });
+
+  it("stays quiet when rating and grade agree", () => {
+    const report = makeReport({ acpls: [35, 40], blunders: [0, 0], wins: 2 });
+    report.ratingSeries = [
+      { t: 1, rating: 700 },
+      { t: 2, rating: 750 },
+    ] as WeeklyReport["ratingSeries"];
+    const grade = computeGrade(report);
+    expect(grade?.rating?.delta).toBe(50);
+    expect(grade?.rating?.note).toBeNull();
+  });
+
+  it("omits the rating trend without series data", () => {
+    expect(computeGrade(makeReport({ acpls: [65] }))?.rating).toBeNull();
+  });
 });
 
 describe("nextLevelPlan", () => {

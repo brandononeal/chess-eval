@@ -4,6 +4,31 @@ import { errorRate, scoreOf, winRate } from "./ui-utils";
 export interface WeekGrade {
   letter: string;
   note: string;
+  breakdown: GradeBreakdown;
+  rating: RatingTrend | null;
+}
+
+/** The three inputs to the letter, exposed so the UI can show its work. */
+export interface GradeBreakdown {
+  avgAcpl: number;
+  /** Base GPA earned by the ACPL band. */
+  acplGpa: number;
+  blundersPerGame: number;
+  /** ±0.3 modifier from blunder rate (0 when neutral). */
+  blunderMod: number;
+  /** Win/draw score fraction, 0..1. */
+  score: number;
+  /** ±0.3 modifier from results (0 when neutral). */
+  scoreMod: number;
+  gpa: number;
+}
+
+/** Rating movement over the report window — context, not a grade input. */
+export interface RatingTrend {
+  delta: number;
+  timeClass: string | null;
+  /** Set only when rating and move quality point opposite ways. */
+  note: string | null;
 }
 
 const LETTERS: Array<[number, string]> = [
@@ -167,6 +192,22 @@ export function nextLevelPlan(report: WeeklyReport): LevelPlan | null {
   return { current, target, tips: tips.slice(0, 3) };
 }
 
+function ratingTrend(report: WeeklyReport, gpa: number): RatingTrend | null {
+  const series = report.ratingSeries ?? [];
+  if (series.length < 2) return null;
+
+  const delta = series[series.length - 1].rating - series[0].rating;
+  let note: string | null = null;
+  if (delta >= 25 && gpa < 2.7) {
+    note =
+      "your rating is outrunning your move quality — opponents are cracking first. The grade tracks accuracy, and it has room to catch up.";
+  } else if (delta <= -25 && gpa >= 3.0) {
+    note =
+      "you're moving well but the results haven't followed yet — that reads as variance, not regression.";
+  }
+  return { delta, timeClass: report.ratingSeriesClass ?? null, note };
+}
+
 export function computeGrade(report: WeeklyReport): WeekGrade | null {
   const { games, totals } = report;
   if (games.length === 0) return null;
@@ -181,15 +222,29 @@ export function computeGrade(report: WeeklyReport): WeekGrade | null {
     games: totals.games,
   });
 
-  let gpa = acplPoints(avgAcpl);
-  if (blundersPerGame <= 0.8) gpa += 0.3;
-  if (blundersPerGame >= 2.5) gpa -= 0.3;
-  if (score >= 0.55) gpa += 0.3;
-  if (score <= 0.4) gpa -= 0.3;
-  gpa = Math.max(0, Math.min(4.3, gpa));
+  const acplGpa = acplPoints(avgAcpl);
+  const blunderMod =
+    blundersPerGame <= 0.8 ? 0.3 : blundersPerGame >= 2.5 ? -0.3 : 0;
+  const scoreMod = score >= 0.55 ? 0.3 : score <= 0.4 ? -0.3 : 0;
+  // Round to one decimal: 0.3 isn't exact in floating point, and a 4.0 that
+  // drifts to 3.9999… must not slip down a letter band.
+  const gpa =
+    Math.round(
+      Math.max(0, Math.min(4.3, acplGpa + blunderMod + scoreMod)) * 10,
+    ) / 10;
 
   return {
     letter: gpa > 4.0 ? "A+" : letterFor(gpa),
     note: coachNote(report, avgAcpl),
+    breakdown: {
+      avgAcpl,
+      acplGpa,
+      blundersPerGame,
+      blunderMod,
+      score,
+      scoreMod,
+      gpa,
+    },
+    rating: ratingTrend(report, gpa),
   };
 }

@@ -1,6 +1,11 @@
 "use client";
 
-import { computeGrade, nextLevelPlan } from "@/lib/coach/grade";
+import {
+  computeGrade,
+  nextLevelPlan,
+  type GradeBreakdown,
+  type RatingTrend,
+} from "@/lib/coach/grade";
 import {
   CLOCK_BUCKET_LABELS,
   STUDY_FOCI,
@@ -131,6 +136,79 @@ function TimePressureCard({ tp }: { tp: TimePressureSummary }) {
         </p>
       )}
     </div>
+  );
+}
+
+function GpaMod({ value }: { value: number }) {
+  if (value === 0) return <span className="text-ink-faint">±0</span>;
+  return (
+    <span className={value > 0 ? "text-win" : "text-loss"}>
+      {value > 0 ? "+" : "−"}
+      {Math.abs(value).toFixed(1)}
+    </span>
+  );
+}
+
+function GradeBreakdownCard({
+  breakdown,
+  letter,
+  days,
+}: {
+  breakdown: GradeBreakdown;
+  letter: string;
+  days: number;
+}) {
+  return (
+    <div className="card px-5 py-3">
+      <div className="kicker mb-2">How it&apos;s graded · last {days} days</div>
+      <table className="font-mono text-xs leading-6">
+        <tbody>
+          <tr>
+            <td className="pr-4 font-sans text-ink-soft">Accuracy</td>
+            <td className="pr-4 text-right">ACPL {breakdown.avgAcpl}</td>
+            <td className="text-right">{breakdown.acplGpa.toFixed(1)}</td>
+          </tr>
+          <tr>
+            <td className="pr-4 font-sans text-ink-soft">Blunders</td>
+            <td className="pr-4 text-right">
+              {breakdown.blundersPerGame.toFixed(1)}/game
+            </td>
+            <td className="text-right">
+              <GpaMod value={breakdown.blunderMod} />
+            </td>
+          </tr>
+          <tr>
+            <td className="pr-4 font-sans text-ink-soft">Results</td>
+            <td className="pr-4 text-right">
+              {Math.round(breakdown.score * 100)}% score
+            </td>
+            <td className="text-right">
+              <GpaMod value={breakdown.scoreMod} />
+            </td>
+          </tr>
+          <tr className="border-t border-[color:var(--ledger-divider)]">
+            <td className="pr-4 font-sans text-ink-soft">GPA</td>
+            <td className="pr-4 text-right">{breakdown.gpa.toFixed(1)}</td>
+            <td className="text-right font-semibold">{letter}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RatingTrendLine({ trend }: { trend: RatingTrend }) {
+  return (
+    <p className="text-[13px] leading-relaxed text-ink-soft">
+      <span
+        className={`font-mono ${trend.delta >= 0 ? "text-win" : "text-loss"}`}
+      >
+        {trend.delta >= 0 ? "+" : "−"}
+        {Math.abs(trend.delta)}
+      </span>
+      {trend.timeClass ? ` ${trend.timeClass}` : ""} rating this window
+      {trend.note && <span className="text-ink-faint"> — {trend.note}</span>}
+    </p>
   );
 }
 
@@ -465,7 +543,7 @@ export default function Coach() {
         </form>
 
         {grade && !loading && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-4">
             <div
               className={`font-display font-black leading-[0.85] ${gradeColor(grade.letter)}`}
               style={{
@@ -476,9 +554,17 @@ export default function Coach() {
             >
               {grade.letter}
             </div>
-            <p className="max-w-[44ch] text-[15px] leading-relaxed text-ink-soft">
-              {grade.note}
-            </p>
+            <div className="flex min-w-64 max-w-[44ch] flex-1 flex-col gap-2">
+              <p className="text-[15px] leading-relaxed text-ink-soft">
+                {grade.note}
+              </p>
+              {grade.rating && <RatingTrendLine trend={grade.rating} />}
+            </div>
+            <GradeBreakdownCard
+              breakdown={grade.breakdown}
+              letter={grade.letter}
+              days={days}
+            />
           </div>
         )}
         {(!grade || loading) && (
