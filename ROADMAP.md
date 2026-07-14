@@ -43,10 +43,6 @@ Phase 1 complete.
 
 ## Phase 2 — Accounts & auth
 
-Spike complete: branch `spike/auth-js` has a compiling NextAuth v5 scaffold
-and `docs/auth-spike.md` — schema plan, session wiring, migration SQL, and
-six open questions (with recommendations) to answer before implementing.
-
 - [ ] **Auth.js (NextAuth)**: OAuth (Google/GitHub) or email magic links; CSRF
       handled for you.
 - [ ] Wire the session to the `user_id` the schema already carries → per-user
