@@ -1,6 +1,6 @@
 # Chess Coach
 
-A weekly chess training dashboard built around the **one-third rule** — split practice across **Tactics**, **Play & Analyze**, and **Study**. It pulls your games from the Chess.com API, batch-analyzes them with native Stockfish, and turns the results into coaching:
+A weekly chess training dashboard built around the [**one-third rule**](docs/one-third-rule.md) — split practice across **Tactics**, **Play & Analyze**, and **Study**. It pulls your games from the Chess.com API, batch-analyzes them with native Stockfish, and turns the results into coaching:
 
 - **Tactics** — your own worst moves become find-the-better-move drills; near-best alternatives are accepted (verified by the engine), and failed drills resurface until you pass them
 - **Play & Analyze** — W-L-D record, rating trend, a year-long activity heatmap, per-day ACPL and blunder counts, and blunder rate by time remaining (parsed from PGN `%clk` tags). A game only counts as "analyzed" once you step through it in the replay.
